@@ -1,5 +1,7 @@
 import struct
 import gzip
+import array
+from collections import OrderedDict
 
 class NBTError(Exception):
 	pass
@@ -8,135 +10,303 @@ class NBTUnpackError(NBTError):
 class NBTInvalidOperation(NBTError):
 	pass
 
-def make_reader(name):
-	reader = struct.Struct(name)
-	size = reader.size
-	def read_func(stream):
-		bytes = stream.read(size)
-		if len(bytes) != size:
-			raise NBTUnpackError('Unpacking {}: expected {} got {}'.format(name, size, len(bytes)))
-		return reader.unpack(bytes)[0]
-	return read_func
+class Tag:
+	__slots__ = ('_value',)
+	tagid = 0
+	
+	def __init__(self, value):
+		self.value = value
+	
+	def __str__(self):
+		return '{}({})'.format(self.__class__.__name__, self._value)
+	
+	def __repr__(self):
+		return self.__str__()
+	
+	@classmethod
+	def _normalize(cls, value):
+		raise NBTInvalidOperation('Cannot create or use instances of Tag')
+	
+	@property
+	def value(self):
+		return self._value
+	
+	@value.setter
+	def value(self, newval):
+		self._value = self._normalize(newval)
 
-read_byte = make_reader('>b')
-read_ubyte = make_reader('>B')
-read_short = make_reader('>h')
-read_ushort = make_reader('>H')
-read_int = make_reader('>l')
-read_long = make_reader('>q')
-read_float = make_reader('>f')
-read_double = make_reader('>d')
+class TagNumber(Tag):
+	def __init__(self, value=0):
+		super().__init__(value)
+	
+	@classmethod
+	def _normalize(cls, value):
+		value = int(value) % cls._mod
+		if value >= cls._mod // 2:
+			value -= cls._mod
+		return value
+	
+	@classmethod
+	def read(cls, stream):
+		bytes = stream.read(cls._fmt.size)
+		if len(bytes) != cls._fmt.size:
+			raise NBTUnpackError('Reading {} EOF reached'.format(cls))
+		return cls(cls._fmt.unpack(bytes)[0])
+	
+	def write(self, stream):
+		stream.write(self._fmt.pack(self._value))
 
-def ReadTagByte(stream):
-	return read_byte(stream)
+class TagByte(TagNumber):
+	__slots__ = ()
+	tagid = 1
+	_mod = 2 ** 8
+	_fmt = struct.Struct('>b')
 
-def ReadTagShort(stream):
-	return read_short(stream)
+class TagShort(TagNumber):
+	__slots__ = ()
+	tagid = 2
+	_mod = 2 ** 16
+	_fmt = struct.Struct('>h')
 
-def ReadTagInt(stream):
-	return read_int(stream)
+class TagInt(TagNumber):
+	__slots__ = ()
+	tagid = 3
+	_mod = 2 ** 32
+	_fmt = struct.Struct('>l')
 
-def ReadTagLong(stream):
-	return read_long(stream)
+class TagLong(TagNumber):
+	__slots__ = ()
+	tagid = 4
+	_mod = 2 ** 64
+	_fmt = struct.Struct('>q')
 
-def ReadTagFloat(stream):
-	return read_float(stream)
+class TagDouble(TagNumber):
+	__slots__ = ()
+	tagid = 6
+	_fmt = struct.Struct('>d')
+	
+	@classmethod
+	def _normalize(cls, value):
+		return float(value)
 
-def ReadTagDouble(stream):
-	return read_double(stream)
+class TagFloat(TagDouble):
+	__slots__ = ()
+	tagid = 5
+	_fmt = struct.Struct('>f')
 
-def ReadTagByteArray(stream):
-	size = read_int(stream)
-	data = []
-	for i in range(size):
-		data.append(read_byte(stream))
-	return data
+class TagNumberArray(TagNumber):
+	@classmethod
+	def _normalize(cls, value):
+		newarray = array.array(cls._afmt)
+		for x in value:
+			newarray.append(cls._itemnorm(x))
+		return newarray
+	
+	def __str__(self):
+		return '{}(size={})'.format(self.__class__.__name__, len(self._value))
+	
+	@classmethod
+	def read(cls, stream):
+		size = TagInt._fmt.unpack(stream.read(4))[0]
+		values = []
+		for i in range(size):
+			x = cls._fmt.unpack(stream.read(cls._fmt.size))
+			values.append(x[0])
+		return cls(values)
+	
+	def write(self, stream):
+		stream.write(TagInt._fmt.pack(len(self._value)))
+		for x in self._value:
+			stream.write(self._fmt.pack(x))
 
-def ReadTagString(stream):
-	size = read_ushort(stream)
-	encoded = stream.read(size)
-	if len(encoded) != size:
-		raise NBTUnpackError('String too short')
-	return encoded.decode('utf-8')
+class TagByteArray(TagNumberArray):
+	__slots__ = ()
+	tagid = 7
+	_fmt = struct.Struct('>b')
+	_afmt = 'b'
+	_itemnorm = TagByte._normalize
 
-def ReadTagList(stream):
-	tagid = read_byte(stream)
-	if tagid not in TagReaders:
-		raise NBTUnpackError('Unknown tag id')
-	read_item = TagReaders[tagid]
-	size = read_int(stream)
-	data = []
-	for i in range(size):
-		data.append(read_item(stream))
-	return data
+class TagIntArray(TagNumberArray):
+	__slots__ = ()
+	tagid = 11
+	_fmt = struct.Struct('>l')
+	_afmt = 'l'
+	_itemnorm = TagInt._normalize
 
-def ReadTagCompound(stream):
-	tagdict = {}
-	while True:
-		tagid = read_ubyte(stream)
-		if tagid == 0:
-			break
+class TagString(Tag):
+	__slots__ = ()
+	tagid = 8
+	
+	@classmethod
+	def _normalize(cls, value):
+		return str(value)
+	
+	def __str__(self):
+		return 'TagString("{}")'.format(self._value)
+	
+	@classmethod
+	def read(cls, stream):
+		size = TagShort._fmt.unpack(stream.read(2))[0]
+		encoded = stream.read(size)
+		if len(encoded) != size:
+			raise NBTUnpackError('String too short')
+		return cls(encoded.decode('utf-8'))
+
+	def write(self, stream):
+		raw = self._value.encode('utf-8')
+		stream.write(TagShort._fmt.pack(len(raw)))
+		stream.write(raw)
+
+class TagList(Tag):
+	__slots__ = ('itemid',)
+	tagid = 9
+	
+	def __init__(self, items, id):
+		self.itemid = id
+		super().__init__(items)
+
+	@classmethod
+	def _normalize(cls, value):
+		newarray = []
+		for tag in value:
+			if not isinstance(tag, Tag):
+				raise NBTInvalidOperation('Array element is not a Tag')
+			#if tag.id != cls.itemid ????
+			#	raise NBTInvalidOperation('All elements must be the same tag')
+			newarray.append(tag)
+		return newarray
+	
+	def __str__(self):
+		return 'TagList(type={}, size={})'.format(TagReaders[self.itemid].__name__, len(self._value))
+	
+	@classmethod
+	def read(cls, stream):
+		tagid = TagByte._fmt.unpack(stream.read(1))[0]
 		if tagid not in TagReaders:
 			raise NBTUnpackError('Unknown tag id')
-		
-		namelen = read_ushort(stream)
-		tagnameraw = stream.read(namelen)
-		if len(tagnameraw) != namelen:
-			raise NBTUnpackError('Name too short')
-		tagname = tagnameraw.decode('utf-8')
-		
-		tagdata = TagReaders[tagid](stream)
-		
-		#tagdict[tagname] = (tagid, tagdata)
-		tagdict[tagname] = tagdata
-	return tagdict
+		itemcls = TagReaders[tagid]
+		size = TagInt._fmt.unpack(stream.read(4))[0]
+		tags = []
+		for i in range(size):
+			tags.append(itemcls.read(stream))
+		return cls(tags, tagid)
 
-def ReadTagIntArray(stream):
-	size = read_int(stream)
-	data = []
-	for i in xrange(size):
-		data.append(read_int(stream))
-	return data
+	def write(self, stream):
+		stream.write(TagByte._fmt.pack(self.itemid))
+		stream.write(TagInt._fmt.pack(len(self._value)))
+		for tag in self._value:
+			tag.write(stream)
+
+class TagCompound(Tag):
+	__slots__ = ()
+	tagid = 10
+	
+	@classmethod
+	def _normalize(cls, value):
+		newdict = OrderedDict()
+		for name in value:
+			if not isinstance(value[name], Tag):
+				raise NBTInvalidOperation('Dict element is not a Tag')
+			newdict[name] = value[name]
+		return newdict
+	
+	def __str__(self):
+		return 'TagCompound(size={})'.format(len(self._values))
+
+	@classmethod
+	def read(cls, stream):
+		tagdict = OrderedDict()
+		while True:
+			tagid = TagByte._fmt.unpack(stream.read(1))[0]
+			if tagid == 0:
+				break
+			if tagid not in TagReaders:
+				raise NBTUnpackError('Unknown tag id')
+			name_as_tag = TagString.read(stream)
+			name = name_as_tag.value
+			tag = TagReaders[tagid].read(stream)
+			tagdict[name] = tag
+		return cls(tagdict)
+	
+	def write(self, stream):
+		for name in self._value:
+			tag = self._value[name]
+			stream.write(TagByte._fmt.pack(tag.tagid))
+			TagString(name).write(stream)
+			tag.write(stream)
+		stream.write(b'\x00')
 
 def ReadBaseTag(stream):
-	tagid = read_ubyte(stream)
-	if tagid != 10:
+	tagid = ord(stream.read(1))
+	if tagid != TagCompound.tagid:
 		raise NBTUnpackError('Invalid base tag')
 	# Should always be zero so no name bytes
-	read_ushort(stream)
-	return ReadTagCompound(stream)
+	stream.read(2)
+	return TagCompound.read(stream)
 
 TagReaders = {
-	0: lambda x: None,
-	1: ReadTagByte,
-	2: ReadTagShort,
-	3: ReadTagInt,
-	4: ReadTagLong,
-	5: ReadTagFloat,
-	6: ReadTagDouble,
-	7: ReadTagByteArray,
-	8: ReadTagString,
-	9: ReadTagList,
-	10: ReadTagCompound,
-	11: ReadTagIntArray
+	0: Tag,
+	1: TagByte,
+	2: TagShort,
+	3: TagInt,
+	4: TagLong,
+	5: TagFloat,
+	6: TagDouble,
+	7: TagByteArray,
+	8: TagString,
+	9: TagList,
+	10: TagCompound,
+	11: TagIntArray
 }
 
 def ReadNBTFile(path):
-	file = open(path, 'rb')
-
-	magic = file.read(2)
-	if magic == b'\x1f\x8b':
+	try:
+		file = open(path, 'rb')
+		magic = file.read(2)
+		if magic == b'\x1f\x8b':
+			file.close()
+			file = gzip.open(path, 'rb')
+		else:
+			file.seek(0)
+		roottag = ReadBaseTag(file)
+	finally:
 		file.close()
-		file = gzip.open(path, 'rb')
-	else:
-		file.seek(0)
-	
-	#roottag = (10, ReadBaseTag(file))
-	roottag = ReadBaseTag(file)
-
-	file.close()
 	return roottag
 
+def WriteNBTFile(path, root, compress=True):
+	try:
+		if compress:
+			file = gzip.open(path, 'wb')
+		else:
+			file = open(path, 'wb')
+		file.write(b'\x0a\x00\x00')
+		root.write(file)
+	finally:
+		file.close()
+
+def fancy_tag_format(tag, indent='  ', level=0):
+	out = ''
+	tag_name = tag.__class__.__name__
+	if tag.tagid in (TagByteArray.tagid, TagIntArray.tagid):
+		out += '{} [\n'.format(tag_name)
+		for x in tag._value:
+			out += '{}, '.format(x)
+		out += ']'
+	elif tag.tagid == TagList.tagid:
+		out += '{} [\n'.format(tag_name)
+		for x in tag._value:
+			out += '{}{}\n'.format(indent * (level+1), fancy_tag_format(x, indent, level + 1))
+		out += indent * level + ']'
+	elif tag.tagid == TagCompound.tagid:
+		out += 'TagCompound {\n'
+		for name in tag._value:
+			out += '{}{}: {}\n'.format(indent * (level+1), name, fancy_tag_format(tag._value[name], indent, level+1))
+		out += indent * level + '}'
+	elif tag.tagid == TagString.tagid:
+		out += 'TagString("{}")'.format(tag._value)
+	else:
+		out += '{}({})'.format(tag_name, tag._value)
+	return out
 
 if __name__ == '__main__':
 	import os
@@ -147,4 +317,6 @@ if __name__ == '__main__':
 	
 	filetags = ReadNBTFile(fname)
 	
-	open('UnpackedData.txt', 'w').write(str(filetags))
+	open('UnpackedData.txt', 'w').write(fancy_tag_format(filetags))
+	
+	WriteNBTFile('UnpackedResaved.dat', filetags)
