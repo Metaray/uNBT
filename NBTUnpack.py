@@ -2,6 +2,9 @@ import struct
 import gzip
 import array
 from collections import OrderedDict, abc
+import sys
+
+_do_byteswap = sys.byteorder == 'little'
 
 class NBTError(Exception):
 	pass
@@ -121,9 +124,11 @@ class _TagNumberArray(Tag):
 	@classmethod
 	def read(cls, stream):
 		length = TagInt._fmt.unpack(stream.read(4))[0]
-		unpacker = struct.Struct('>{}{}'.format(length, cls._itype))
-		values = unpacker.unpack(stream.read(unpacker.size))
-		return cls(array.array(cls._itype, values))
+		values = array.array(cls._itype)
+		values.frombytes(stream.read(length * values.itemsize))
+		if _do_byteswap:
+			values.byteswap()
+		return cls(values)
 	
 	def write(self, stream):
 		stream.write(TagInt._fmt.pack(len(self._value)))
