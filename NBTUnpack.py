@@ -1,7 +1,7 @@
 import struct
 import gzip
 import array
-from collections import OrderedDict
+from collections import OrderedDict, abc
 
 class NBTError(Exception):
 	pass
@@ -157,7 +157,7 @@ class TagString(Tag):
 		stream.write(TagShort._fmt.pack(len(raw)))
 		stream.write(raw)
 
-class TagList(Tag):
+class TagList(Tag, abc.Sequence):
 	__slots__ = ('itemid',)
 	tagid = 9
 	
@@ -175,6 +175,12 @@ class TagList(Tag):
 			#	raise NBTInvalidOperation('All elements must be the same tag')
 			newarray.append(tag)
 		return newarray
+
+	def __len__(self):
+		return len(self.value)
+	
+	def __getitem__(self, key):
+		return self.value[key]
 	
 	def __str__(self):
 		return 'TagList(type={}, size={})'.format(TagReaders[self.itemid].__name__, len(self._value))
@@ -197,21 +203,30 @@ class TagList(Tag):
 		for tag in self._value:
 			tag.write(stream)
 
-class TagCompound(Tag):
+class TagCompound(Tag, abc.Mapping):
 	__slots__ = ()
 	tagid = 10
 	
 	@classmethod
 	def _normalize(cls, value):
 		newdict = OrderedDict()
-		for name in value:
-			if not isinstance(value[name], Tag):
+		for name, tag in value.items():
+			if not isinstance(tag, Tag):
 				raise NBTInvalidOperation('Dict element is not a Tag')
-			newdict[name] = value[name]
+			newdict[name] = tag
 		return newdict
 	
 	def __str__(self):
-		return 'TagCompound(size={})'.format(len(self._values))
+		return 'TagCompound(size={})'.format(len(self._value))
+	
+	def __len__(self):
+		return len(self.value)
+	
+	def __getitem__(self, key):
+		return self.value[key]
+	
+	def __iter__(self):
+		return iter(self.value)
 
 	@classmethod
 	def read(cls, stream):
