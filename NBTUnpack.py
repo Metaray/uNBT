@@ -18,8 +18,9 @@ class Tag:
 	__slots__ = ('_value',)
 	tagid = 0
 	
-	def __init__(self, value):
-		self.value = value
+	def __init__(self):
+		if self.tagid == 0:
+			raise NotImplementedError('Cannot create or use instances of ' + self.__class__.__name__)
 	
 	def __str__(self):
 		return '{}({})'.format(self.__class__.__name__, self._value)
@@ -27,17 +28,9 @@ class Tag:
 	def __repr__(self):
 		return self.__str__()
 	
-	@classmethod
-	def _normalize(cls, value):
-		raise NotImplementedError('Cannot create or use instances of Tag')
-	
 	@property
 	def value(self):
 		return self._value
-	
-	@value.setter
-	def value(self, newval):
-		self._value = self._normalize(newval)
 	
 	@classmethod
 	def read(cls, stream):
@@ -49,25 +42,25 @@ class Tag:
 
 class _TagNumber(Tag):
 	def __init__(self, value=0):
-		super().__init__(value)
+		super().__init__()
+		self._value = self._normalize(value)
 	
 	@classmethod
 	def _normalize(cls, value):
 		value = int(value) % cls._mod
-		if value >= cls._mod // 2:
+		if value >= cls._mod >> 1:
 			value -= cls._mod
 		return value
 	
 	@classmethod
 	def read(cls, stream):
-		bytes = stream.read(cls._fmt.size)
-		if len(bytes) != cls._fmt.size:
+		rawnum = stream.read(cls._fmt.size)
+		if len(rawnum) != cls._fmt.size:
 			raise NBTUnpackError('Reading {} EOF reached'.format(cls))
-		return cls(cls._fmt.unpack(bytes)[0])
+		return cls(cls._fmt.unpack(rawnum)[0])
 	
 	def write(self, stream):
 		stream.write(self._fmt.pack(self._value))
-
 
 class TagByte(_TagNumber):
 	__slots__ = ()
@@ -116,14 +109,8 @@ class _TagNumberArray(Tag):
 			self._value = array.array(self._itype, numbers)
 		else:
 			# Else do normalization
-			self.value = numbers
-
-	@classmethod
-	def _normalize(cls, value):
-		newarray = array.array(cls._itype)
-		for x in value:
-			newarray.append(cls._itemnorm(x))
-		return newarray
+			newarray = array.array(cls._itype, (cls._itemnorm(x) for x in numbers))
+			self._value = newarray
 	
 	def __str__(self):
 		return '{}(size={})'.format(self.__class__.__name__, len(self._value))
@@ -160,9 +147,9 @@ class TagString(Tag):
 	__slots__ = ()
 	tagid = 8
 	
-	@classmethod
-	def _normalize(cls, value):
-		return str(value)
+	def __init__(self, value):
+		super().__init__()
+		self._value = str(value)
 	
 	def __str__(self):
 		return 'TagString("{}")'.format(self._value)
@@ -185,20 +172,17 @@ class TagList(Tag, abc.Sequence):
 	__slots__ = ('itemid',)
 	tagid = 9
 	
-	def __init__(self, items, id):
-		self.itemid = id
-		super().__init__(items)
-
-	@classmethod
-	def _normalize(cls, value):
-		newarray = []
-		for tag in value:
+	def __init__(self, itemid, items=None):
+		super().__init__()
+		self.itemid = itemid
+		newitems = []
+		for tag in items or []:
 			if not isinstance(tag, Tag):
 				raise NBTInvalidOperation('Array element is not a Tag')
-			#if tag.id != cls.itemid ????
-			#	raise NBTInvalidOperation('All elements must be the same tag')
-			newarray.append(tag)
-		return newarray
+			if tag.tagid != itemid:
+				raise NBTInvalidOperation('All elements must have the same tag')
+			newitems.append(tag)
+		self._value = newitems
 
 	def __len__(self):
 		return len(self._value)
@@ -217,7 +201,9 @@ class TagList(Tag, abc.Sequence):
 		itemcls_read = TagReaders[itemid].read
 		size, = TagInt._fmt.unpack(stream.read(4))
 		tags = [itemcls_read(stream) for _ in range(size)]
-		return cls(tags, itemid)
+		thislist = cls(itemid)
+		thislist._value = tags
+		return thislist
 
 	def write(self, stream):
 		stream.write(TagByte._fmt.pack(self.itemid))
@@ -229,15 +215,17 @@ class TagList(Tag, abc.Sequence):
 class TagCompound(Tag, abc.Mapping):
 	__slots__ = ()
 	tagid = 10
-	
-	@classmethod
-	def _normalize(cls, value):
-		newdict = OrderedDict()
-		for name, tag in value.items():
-			if not isinstance(tag, Tag):
-				raise NBTInvalidOperation('Dict element is not a Tag')
-			newdict[name] = tag
-		return newdict
+
+	def __init__(self, mapping=None):
+		super().__init__()
+		if mapping is not None:
+			if any(not isinstance(item, Tag) for item in mapping.values()):
+				raise NBTInvalidOperation('Not all mapping elements are Tags')
+			if any(type(key) is not str for key in mapping.keys()):
+				raise NBTInvalidOperation('Not all mapping keys are strings')
+			self._value = mapping.copy()
+		else:
+			self._value = {}
 	
 	def __str__(self):
 		return 'TagCompound(size={})'.format(len(self._value))
@@ -264,7 +252,9 @@ class TagCompound(Tag, abc.Mapping):
 			name = TagString.read(stream).value
 			tag = TagReaders[tagid].read(stream)
 			tagdict[name] = tag
-		return cls(tagdict)
+		thistag = cls()
+		thistag._value = tagdict
+		return thistag
 	
 	def write(self, stream):
 		for name in self._value:
