@@ -29,7 +29,7 @@ class Tag:
 	
 	@classmethod
 	def _normalize(cls, value):
-		raise NBTInvalidOperation('Cannot create or use instances of Tag')
+		raise NotImplementedError('Cannot create or use instances of Tag')
 	
 	@property
 	def value(self):
@@ -38,6 +38,13 @@ class Tag:
 	@value.setter
 	def value(self, newval):
 		self._value = self._normalize(newval)
+	
+	@classmethod
+	def read(cls, stream):
+		raise NotImplementedError('Cannot read instances of Tag')
+	
+	def write(self, stream):
+		raise NotImplementedError('Cannot write instances of Tag')
 
 
 class _TagNumber(Tag):
@@ -123,7 +130,7 @@ class _TagNumberArray(Tag):
 	
 	@classmethod
 	def read(cls, stream):
-		length = TagInt._fmt.unpack(stream.read(4))[0]
+		length, = TagInt._fmt.unpack(stream.read(4))
 		values = array.array(cls._itype)
 		values.frombytes(stream.read(length * values.itemsize))
 		if _do_byteswap:
@@ -162,7 +169,7 @@ class TagString(Tag):
 	
 	@classmethod
 	def read(cls, stream):
-		size = TagShort._fmt.unpack(stream.read(2))[0]
+		size, = TagShort._fmt.unpack(stream.read(2))
 		encoded = stream.read(size)
 		if len(encoded) != size:
 			raise NBTUnpackError('String too short')
@@ -194,24 +201,22 @@ class TagList(Tag, abc.Sequence):
 		return newarray
 
 	def __len__(self):
-		return len(self.value)
+		return len(self._value)
 	
 	def __getitem__(self, key):
-		return self.value[key]
+		return self._value[key]
 	
 	def __str__(self):
 		return 'TagList(type={}, size={})'.format(TagReaders[self.itemid].__name__, len(self._value))
 	
 	@classmethod
 	def read(cls, stream):
-		itemid = TagByte._fmt.unpack(stream.read(1))[0]
+		itemid, = TagByte._fmt.unpack(stream.read(1))
 		if itemid not in TagReaders:
 			raise NBTUnpackError('Unknown tag id')
-		itemcls = TagReaders[itemid]
-		size = TagInt._fmt.unpack(stream.read(4))[0]
-		tags = []
-		for i in range(size):
-			tags.append(itemcls.read(stream))
+		itemcls_read = TagReaders[itemid].read
+		size, = TagInt._fmt.unpack(stream.read(4))
+		tags = [itemcls_read(stream) for _ in range(size)]
 		return cls(tags, itemid)
 
 	def write(self, stream):
@@ -238,19 +243,20 @@ class TagCompound(Tag, abc.Mapping):
 		return 'TagCompound(size={})'.format(len(self._value))
 	
 	def __len__(self):
-		return len(self.value)
+		return len(self._value)
 	
 	def __getitem__(self, key):
-		return self.value[key]
+		return self._value[key]
 	
 	def __iter__(self):
-		return iter(self.value)
+		return iter(self._value)
 
 	@classmethod
 	def read(cls, stream):
 		tagdict = OrderedDict()
+		byte_upk = TagByte._fmt.unpack
 		while True:
-			tagid = TagByte._fmt.unpack(stream.read(1))[0]
+			tagid, = byte_upk(stream.read(1))
 			if tagid == 0:
 				break
 			if tagid not in TagReaders:
