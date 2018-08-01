@@ -265,14 +265,6 @@ class TagCompound(Tag, abc.Mapping):
 		stream.write(b'\x00')
 
 
-def ReadBaseTag(stream):
-	tagid = ord(stream.read(1))
-	if tagid != TagCompound.tagid:
-		raise NBTUnpackError('Invalid base tag')
-	# Should always be zero, so no name bytes
-	stream.read(2)
-	return TagCompound.read(stream)
-
 TagReaders = {
 	0: Tag,
 	1: TagByte,
@@ -288,7 +280,17 @@ TagReaders = {
 	11: TagIntArray
 }
 
+
+def ReadRootTag(stream):
+	tagid = ord(stream.read(1))
+	if tagid != TagCompound.tagid:
+		raise NBTUnpackError('Invalid base tag')
+	# Should always be zero, so no name bytes
+	stream.read(2)
+	return TagCompound.read(stream)
+
 def ReadNBTFile(path):
+	file = None
 	try:
 		file = open(path, 'rb')
 		magic = file.read(2)
@@ -297,10 +299,11 @@ def ReadNBTFile(path):
 			file = gzip.open(path, 'rb')
 		else:
 			file.seek(0)
-		roottag = ReadBaseTag(file)
+		root = ReadRootTag(file)
 	finally:
-		file.close()
-	return roottag
+		if file is not None:
+			file.close()
+	return root
 
 def WriteNBTFile(path, root, compress=True):
 	try:
@@ -313,7 +316,7 @@ def WriteNBTFile(path, root, compress=True):
 	finally:
 		file.close()
 
-def fancy_tag_format(tag, indent='  ', level=0):
+def FancyTagFormat(tag, indent='  ', level=0):
 	out = ''
 	tag_name = tag.__class__.__name__
 	if tag.tagid in (TagByteArray.tagid, TagIntArray.tagid):
@@ -324,12 +327,12 @@ def fancy_tag_format(tag, indent='  ', level=0):
 	elif tag.tagid == TagList.tagid:
 		out += '{} [\n'.format(tag_name)
 		for x in tag._value:
-			out += '{}{}\n'.format(indent * (level+1), fancy_tag_format(x, indent, level + 1))
+			out += '{}{}\n'.format(indent * (level+1), FancyTagFormat(x, indent, level + 1))
 		out += indent * level + ']'
 	elif tag.tagid == TagCompound.tagid:
 		out += 'TagCompound {\n'
 		for name in tag._value:
-			out += '{}{}: {}\n'.format(indent * (level+1), name, fancy_tag_format(tag._value[name], indent, level+1))
+			out += '{}{}: {}\n'.format(indent * (level+1), name, FancyTagFormat(tag._value[name], indent, level+1))
 		out += indent * level + '}'
 	elif tag.tagid == TagString.tagid:
 		out += 'TagString("{}")'.format(tag._value)
