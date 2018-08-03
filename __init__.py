@@ -55,8 +55,6 @@ class _TagNumber(Tag):
 	@classmethod
 	def read(cls, stream):
 		rawnum = stream.read(cls._fmt.size)
-		if len(rawnum) != cls._fmt.size:
-			raise NBTUnpackError('Reading {} EOF reached'.format(cls))
 		return cls(cls._fmt.unpack(rawnum)[0])
 	
 	def write(self, stream):
@@ -109,7 +107,7 @@ class _TagNumberArray(Tag):
 			self._value = array.array(self._itype, numbers)
 		else:
 			# Else do normalization
-			newarray = array.array(cls._itype, (cls._itemnorm(x) for x in numbers))
+			newarray = array.array(self._itype, map(self._itemnorm, numbers))
 			self._value = newarray
 	
 	def __str__(self):
@@ -158,8 +156,6 @@ class TagString(Tag):
 	def read(cls, stream):
 		size, = TagShort._fmt.unpack(stream.read(2))
 		encoded = stream.read(size)
-		if len(encoded) != size:
-			raise NBTUnpackError('String too short')
 		return cls(encoded.decode('utf-8'))
 
 	def write(self, stream):
@@ -169,20 +165,20 @@ class TagString(Tag):
 
 
 class TagList(Tag, abc.Sequence):
-	__slots__ = ('itemid',)
+	__slots__ = ('item_cls',)
 	tagid = 9
 	
-	def __init__(self, itemid, items=None):
+	def __init__(self, item_cls, items=None):
 		super().__init__()
-		self.itemid = itemid
-		newitems = []
-		for tag in items or []:
-			if not isinstance(tag, Tag):
-				raise NBTInvalidOperation('Array element is not a Tag')
-			if tag.tagid != itemid:
-				raise NBTInvalidOperation('All elements must have the same tag')
-			newitems.append(tag)
-		self._value = newitems
+		if not issubclass(item_cls, Tag):
+			raise NBTInvalidOperation('Item class must be some Tag')
+		self.item_cls = item_cls
+		if items is not None:
+			if not all(isinstance(item, item_cls) for item in items):
+				raise NBTInvalidOperation('All list elements must be same Tag')
+			self._value = list(items)
+		else:
+			self._value = []
 
 	def __len__(self):
 		return len(self._value)
@@ -191,22 +187,23 @@ class TagList(Tag, abc.Sequence):
 		return self._value[key]
 	
 	def __str__(self):
-		return 'TagList(type={}, size={})'.format(TagReaders[self.itemid].__name__, len(self._value))
+		return 'TagList(type={}, size={})'.format(self.item_cls.__name__, len(self._value))
 	
 	@classmethod
 	def read(cls, stream):
-		itemid, = TagByte._fmt.unpack(stream.read(1))
+		itemid = ord(stream.read(1))
 		if itemid not in TagReaders:
 			raise NBTUnpackError('Unknown tag id')
-		itemcls_read = TagReaders[itemid].read
+		itemcls = TagReaders[itemid]
+		itemcls_read = itemcls.read
 		size, = TagInt._fmt.unpack(stream.read(4))
 		tags = [itemcls_read(stream) for _ in range(size)]
-		thislist = cls(itemid)
+		thislist = cls(itemcls)
 		thislist._value = tags
 		return thislist
 
 	def write(self, stream):
-		stream.write(TagByte._fmt.pack(self.itemid))
+		stream.write(TagByte._fmt.pack(self.item_cls.tagid))
 		stream.write(TagInt._fmt.pack(len(self._value)))
 		for tag in self._value:
 			tag.write(stream)
@@ -242,10 +239,9 @@ class TagCompound(Tag, abc.Mapping):
 	@classmethod
 	def read(cls, stream):
 		tagdict = OrderedDict()
-		byte_upk = TagByte._fmt.unpack
 		stream_read = stream.read
 		while True:
-			tagid, = byte_upk(stream_read(1))
+			tagid = ord(stream_read(1))
 			if tagid == 0:
 				break
 			if tagid not in TagReaders:
