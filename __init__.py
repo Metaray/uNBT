@@ -22,11 +22,8 @@ class Tag:
 		if self.tagid == 0:
 			raise NotImplementedError('Cannot create or use instances of ' + self.__class__.__name__)
 	
-	def __str__(self):
-		return '{}({})'.format(self.__class__.__name__, self._value)
-	
 	def __repr__(self):
-		return self.__str__()
+		return '{}({})'.format(self.__class__.__name__, self._value)
 	
 	@property
 	def value(self):
@@ -110,8 +107,8 @@ class _TagNumberArray(Tag):
 			newarray = array.array(self._itype, map(self._itemnorm, numbers))
 			self._value = newarray
 	
-	def __str__(self):
-		return '{}(size={})'.format(self.__class__.__name__, len(self._value))
+	def __repr__(self):
+		return '{}(len={})'.format(self.__class__.__name__, len(self._value))
 	
 	@classmethod
 	def read(cls, stream):
@@ -149,8 +146,8 @@ class TagString(Tag):
 		super().__init__()
 		self._value = str(value)
 	
-	def __str__(self):
-		return 'TagString("{}")'.format(self._value)
+	def __repr__(self):
+		return 'TagString({})'.format(repr(self._value))
 	
 	@classmethod
 	def read(cls, stream):
@@ -186,8 +183,8 @@ class TagList(Tag, abc.Sequence):
 	def __getitem__(self, key):
 		return self._value[key]
 	
-	def __str__(self):
-		return 'TagList(type={}, size={})'.format(self.item_cls.__name__, len(self._value))
+	def __repr__(self):
+		return 'TagList(type={}, len={})'.format(self.item_cls.__name__, len(self._value))
 	
 	@classmethod
 	def read(cls, stream):
@@ -224,8 +221,8 @@ class TagCompound(Tag, abc.Mapping):
 		else:
 			self._value = {}
 	
-	def __str__(self):
-		return 'TagCompound(size={})'.format(len(self._value))
+	def __repr__(self):
+		return 'TagCompound(len={})'.format(len(self._value))
 	
 	def __len__(self):
 		return len(self._value)
@@ -316,22 +313,19 @@ def FancyTagFormat(tag, indent='  ', level=0):
 	out = ''
 	tag_name = tag.__class__.__name__
 	if tag.tagid in (TagByteArray.tagid, TagIntArray.tagid):
-		out += '{} [\n'.format(tag_name)
-		for x in tag._value:
-			out += '{}, '.format(x)
-		out += ']'
+		out += '{} {}'.format(tag_name, tag._value.tolist())
 	elif tag.tagid == TagList.tagid:
 		out += '{} [\n'.format(tag_name)
 		for x in tag._value:
-			out += '{}{}\n'.format(indent * (level+1), FancyTagFormat(x, indent, level + 1))
+			out += '{}{}\n'.format(indent * (level + 1), FancyTagFormat(x, indent, level + 1))
 		out += indent * level + ']'
 	elif tag.tagid == TagCompound.tagid:
 		out += 'TagCompound {\n'
 		for name in tag._value:
-			out += '{}{}: {}\n'.format(indent * (level+1), name, FancyTagFormat(tag._value[name], indent, level+1))
+			out += '{}{}: {}\n'.format(indent * (level + 1), name, FancyTagFormat(tag._value[name], indent, level + 1))
 		out += indent * level + '}'
 	elif tag.tagid == TagString.tagid:
-		out += 'TagString("{}")'.format(tag._value)
+		out += repr(tag)
 	else:
 		out += '{}({})'.format(tag_name, tag._value)
 	return out
