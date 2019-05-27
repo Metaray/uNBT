@@ -329,3 +329,33 @@ def FancyTagFormat(tag, indent='  ', level=0):
 	else:
 		out += '{}({})'.format(tag_name, tag._value)
 	return out
+
+
+if __name__ == '__main__':
+	import os
+
+	def print_usage():
+		print('Usage: uNBT.py <command> <file>')
+		print('Commands:')
+		print('    print - Print tag with formatting')
+
+	if len(sys.argv) != 3:
+		print_usage()
+		exit(1)
+	
+	else:
+		cmd = sys.argv[1].lower()
+		path = sys.argv[2]
+
+		if cmd not in ['print']:
+			print('Unknown command: {}'.format(cmd))
+			print_usage()
+			exit(2)
+
+		if not os.path.exists(path):
+			print('File {} does not exist'.format(path))
+			exit(3)
+		
+		root = ReadNBTFile(path)
+		if cmd == 'print':
+			print(FancyTagFormat(root))
