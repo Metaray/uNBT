@@ -19,8 +19,7 @@ class Tag:
 	tagid = 0
 	
 	def __init__(self):
-		if self.tagid == 0:
-			raise NotImplementedError('Cannot create or use instances of ' + self.__class__.__name__)
+		raise NotImplementedError('Cannot create instances of base Tag')
 	
 	def __repr__(self):
 		return '{}({})'.format(self.__class__.__name__, self._value)
@@ -39,7 +38,6 @@ class Tag:
 
 class _TagNumber(Tag):
 	def __init__(self, value=0):
-		super().__init__()
 		self._value = self._normalize(value)
 	
 	@classmethod
@@ -143,8 +141,9 @@ class TagString(Tag):
 	tagid = 8
 	
 	def __init__(self, value):
-		super().__init__()
-		self._value = str(value)
+		if not isinstance(value, str):
+			raise ValueError('Value must have type str')
+		self._value = value
 	
 	def __repr__(self):
 		return 'TagString({})'.format(repr(self._value))
@@ -152,8 +151,7 @@ class TagString(Tag):
 	@classmethod
 	def read(cls, stream):
 		size, = TagShort._fmt.unpack(stream.read(2))
-		encoded = stream.read(size)
-		return cls(encoded.decode('utf-8'))
+		return cls(stream.read(size).decode('utf-8'))
 
 	def write(self, stream):
 		raw = self._value.encode('utf-8')
@@ -166,7 +164,6 @@ class TagList(Tag, abc.Sequence):
 	tagid = 9
 	
 	def __init__(self, item_cls, items=None):
-		super().__init__()
 		if not issubclass(item_cls, Tag):
 			raise NBTInvalidOperation('Item class must be some Tag')
 		self.item_cls = item_cls
@@ -188,13 +185,15 @@ class TagList(Tag, abc.Sequence):
 	
 	@classmethod
 	def read(cls, stream):
-		itemid = ord(stream.read(1))
+		itemid = stream.read(1)[0]
 		if itemid not in TagReaders:
-			raise NBTUnpackError('Unknown tag id')
+			raise NBTUnpackError('Unknown list item tag id {}'.format(itemid))
 		itemcls = TagReaders[itemid]
 		itemcls_read = itemcls.read
+		
 		size, = TagInt._fmt.unpack(stream.read(4))
 		tags = [itemcls_read(stream) for _ in range(size)]
+		
 		thislist = cls(itemcls)
 		thislist._value = tags
 		return thislist
@@ -211,7 +210,6 @@ class TagCompound(Tag, abc.Mapping):
 	tagid = 10
 
 	def __init__(self, mapping=None):
-		super().__init__()
 		if mapping is not None:
 			if any(not isinstance(item, Tag) for item in mapping.values()):
 				raise NBTInvalidOperation('Not all mapping elements are Tags')
@@ -236,16 +234,19 @@ class TagCompound(Tag, abc.Mapping):
 	@classmethod
 	def read(cls, stream):
 		tagdict = OrderedDict()
+		# tagdict = {}
 		stream_read = stream.read
+
 		while True:
-			tagid = ord(stream_read(1))
-			if tagid == 0:
+			tagid = stream_read(1)[0]
+			if not tagid:
 				break
 			if tagid not in TagReaders:
-				raise NBTUnpackError('Unknown tag id')
+				raise NBTUnpackError('Unknown tag id {} in compound'.format(tagid))
 			name = TagString.read(stream).value
 			tag = TagReaders[tagid].read(stream)
 			tagdict[name] = tag
+		
 		thistag = cls()
 		thistag._value = tagdict
 		return thistag
@@ -275,7 +276,7 @@ TagReaders = {
 
 
 def ReadRootTag(stream):
-	tagid = ord(stream.read(1))
+	tagid = stream.read(1)[0]
 	if tagid != TagCompound.tagid:
 		raise NBTUnpackError('Invalid base tag')
 	# Should always be zero, so no name bytes
