@@ -97,13 +97,7 @@ class TagFloat(TagDouble):
 
 class _TagNumberArray(Tag):
 	def __init__(self, numbers):
-		if isinstance(numbers, array.array) and numbers.typecode == self._itype:
-			# Internal type matches, just copy
-			self._value = array.array(self._itype, numbers)
-		else:
-			# Else do normalization
-			newarray = array.array(self._itype, map(self._itemnorm, numbers))
-			self._value = newarray
+		self._value = array.array(self._itype, numbers)
 	
 	def __repr__(self):
 		return '{}(len={})'.format(self.__class__.__name__, len(self._value))
@@ -119,21 +113,21 @@ class _TagNumberArray(Tag):
 	
 	def write(self, stream):
 		stream.write(TagInt._fmt.pack(len(self._value)))
-		packer = struct.Struct('>{}'.format(self._itype))
-		for x in self._value:
-			stream.write(packer.pack(x))
+		# stream.write(struct.pack('>{}{}'.format(len(self._value), self._itype), *self._value))
+		if _do_byteswap:
+			out = array.array(self._itype, self._value)
+			out.byteswap()
+			out.tofile(stream)
 
 class TagByteArray(_TagNumberArray):
 	__slots__ = ()
 	tagid = 7
 	_itype = 'b'
-	_itemnorm = TagByte._normalize
 
 class TagIntArray(_TagNumberArray):
 	__slots__ = ()
 	tagid = 11
 	_itype = 'l'
-	_itemnorm = TagInt._normalize
 
 
 class TagString(Tag):
