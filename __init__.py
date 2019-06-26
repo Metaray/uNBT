@@ -180,9 +180,9 @@ class TagList(Tag, abc.Sequence):
 	@classmethod
 	def read(cls, stream):
 		itemid = stream.read(1)[0]
-		if itemid not in TagReaders:
+		if itemid not in _tagid_class_mapping:
 			raise NBTUnpackError('Unknown list item tag id {}'.format(itemid))
-		itemcls = TagReaders[itemid]
+		itemcls = _tagid_class_mapping[itemid]
 		itemcls_read = itemcls.read
 		
 		size, = TagInt._fmt.unpack(stream.read(4))
@@ -235,10 +235,10 @@ class TagCompound(Tag, abc.Mapping):
 			tagid = stream_read(1)[0]
 			if not tagid:
 				break
-			if tagid not in TagReaders:
+			if tagid not in _tagid_class_mapping:
 				raise NBTUnpackError('Unknown tag id {} in compound'.format(tagid))
 			name = TagString.read(stream).value
-			tag = TagReaders[tagid].read(stream)
+			tag = _tagid_class_mapping[tagid].read(stream)
 			tagdict[name] = tag
 		
 		thistag = cls()
@@ -253,7 +253,7 @@ class TagCompound(Tag, abc.Mapping):
 		stream.write(b'\x00')
 
 
-TagReaders = {
+_tagid_class_mapping = {
 	0: Tag,
 	1: TagByte,
 	2: TagShort,
@@ -269,42 +269,40 @@ TagReaders = {
 }
 
 
-def ReadRootTag(stream):
-	tagid = stream.read(1)[0]
-	if tagid != TagCompound.tagid:
+def read_root_tag(stream):
+	magic = stream.read(3)
+	if magic != b'\x0a\x00\x00':
 		raise NBTUnpackError('Invalid base tag')
-	# Should always be zero, so no name bytes
-	stream.read(2)
 	return TagCompound.read(stream)
 
-def ReadNBTFile(path):
-	file = None
+def read_nbt_file(file):
+	file_handle = None
 	try:
-		file = open(path, 'rb')
+		if type(file) is str:
+			file_handle = file = open(file, 'rb')
 		magic = file.read(2)
+		file.seek(0)
 		if magic == b'\x1f\x8b':
-			file.close()
-			file = gzip.open(path, 'rb')
-		else:
-			file.seek(0)
-		root = ReadRootTag(file)
+			file = gzip.open(file, 'rb')
+		return read_root_tag(file)
 	finally:
-		if file is not None:
-			file.close()
-	return root
+		if file_handle is not None:
+			file_handle.close()
 
-def WriteNBTFile(path, root, compress=True):
+def write_nbt_file(file, root, compress=True):
+	file_handle = None
 	try:
 		if compress:
-			file = gzip.open(path, 'wb')
+			file_handle = gzip.open(file, 'wb')
 		else:
-			file = open(path, 'wb')
-		file.write(b'\x0a\x00\x00')
-		root.write(file)
+			file_handle = open(file, 'wb')
+		file_handle.write(b'\x0a\x00\x00')
+		root.write(file_handle)
 	finally:
-		file.close()
+		if file_handle is not None:
+			file_handle.close()
 
-def FancyTagFormat(tag, indent='  ', level=0):
+def fancy_tag_format(tag, indent='  ', level=0):
 	out = ''
 	tag_name = tag.__class__.__name__
 	if tag.tagid in (TagByteArray.tagid, TagIntArray.tagid):
@@ -312,12 +310,12 @@ def FancyTagFormat(tag, indent='  ', level=0):
 	elif tag.tagid == TagList.tagid:
 		out += '{} [\n'.format(tag_name)
 		for x in tag._value:
-			out += '{}{}\n'.format(indent * (level + 1), FancyTagFormat(x, indent, level + 1))
+			out += '{}{}\n'.format(indent * (level + 1), fancy_tag_format(x, indent, level + 1))
 		out += indent * level + ']'
 	elif tag.tagid == TagCompound.tagid:
 		out += 'TagCompound {\n'
 		for name in tag._value:
-			out += '{}{}: {}\n'.format(indent * (level + 1), name, FancyTagFormat(tag._value[name], indent, level + 1))
+			out += '{}{}: {}\n'.format(indent * (level + 1), name, fancy_tag_format(tag._value[name], indent, level + 1))
 		out += indent * level + '}'
 	elif tag.tagid == TagString.tagid:
 		out += repr(tag)
@@ -351,6 +349,6 @@ if __name__ == '__main__':
 			print('File {} does not exist'.format(path))
 			exit(3)
 		
-		root = ReadNBTFile(path)
+		root = read_nbt_file(path)
 		if cmd == 'print':
-			print(FancyTagFormat(root))
+			print(fancy_tag_format(root))
