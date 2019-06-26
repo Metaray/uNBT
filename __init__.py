@@ -135,6 +135,11 @@ class TagIntArray(_TagNumberArray):
 	tagid = 11
 	_itype = 'l'
 
+class TagLongArray(_TagNumberArray):
+	__slots__ = ()
+	tagid = 12
+	_itype = 'q'
+
 
 class TagString(Tag):
 	__slots__ = ()
@@ -297,7 +302,8 @@ _tagid_class_mapping = {
 	8: TagString,
 	9: TagList,
 	10: TagCompound,
-	11: TagIntArray
+	11: TagIntArray,
+	12: TagLongArray,
 }
 
 
