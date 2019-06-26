@@ -6,11 +6,11 @@ import sys
 
 _do_byteswap = sys.byteorder == 'little'
 
-class NBTError(Exception):
+class NbtError(Exception):
 	pass
-class NBTUnpackError(NBTError):
+class NbtUnpackError(NbtError):
 	pass
-class NBTInvalidOperation(NBTError):
+class NbtInvalidOperation(NbtError):
 	pass
 
 
@@ -168,11 +168,11 @@ class TagList(Tag, abc.MutableSequence):
 	
 	def __init__(self, item_cls, items=None):
 		if not issubclass(item_cls, Tag):
-			raise NBTInvalidOperation('Item class must be some Tag')
+			raise NbtInvalidOperation('Item class must be some Tag')
 		self.item_cls = item_cls
 		if items is not None:
 			if not all(type(item) is item_cls for item in items):
-				raise NBTInvalidOperation('All list elements must be same Tag')
+				raise NbtInvalidOperation('All list elements must be same Tag')
 			self._value = list(items)
 		else:
 			self._value = []
@@ -185,7 +185,7 @@ class TagList(Tag, abc.MutableSequence):
 	
 	def __setitem__(self, index, tag):
 		if type(tag) is not self.item_cls:
-			raise NBTInvalidOperation('Setting wrong tag type for this list')
+			raise NbtInvalidOperation('Setting wrong tag type for this list')
 		self._value[index] = tag
 	
 	def __delitem__(self, index):
@@ -193,7 +193,7 @@ class TagList(Tag, abc.MutableSequence):
 	
 	def insert(self, index, tag):
 		if type(tag) is not self.item_cls:
-			raise NBTInvalidOperation('Inserting wrong tag type for this list')
+			raise NbtInvalidOperation('Inserting wrong tag type for this list')
 		self._value.insert(index, tag)
 	
 	def __repr__(self):
@@ -203,7 +203,7 @@ class TagList(Tag, abc.MutableSequence):
 	def read(cls, stream):
 		itemid = stream.read(1)[0]
 		if itemid not in _tagid_class_mapping:
-			raise NBTUnpackError('Unknown list item tag id {}'.format(itemid))
+			raise NbtUnpackError('Unknown list item tag id {}'.format(itemid))
 		itemcls = _tagid_class_mapping[itemid]
 		itemcls_read = itemcls.read
 		
@@ -228,9 +228,9 @@ class TagCompound(Tag, abc.MutableMapping):
 	def __init__(self, mapping=None):
 		if mapping is not None:
 			if any(not isinstance(item, Tag) for item in mapping.values()):
-				raise NBTInvalidOperation('Not all mapping elements are Tags')
+				raise NbtInvalidOperation('Not all mapping elements are Tags')
 			if any(type(key) is not str for key in mapping.keys()):
-				raise NBTInvalidOperation('Not all mapping keys are strings')
+				raise NbtInvalidOperation('Not all mapping keys are strings')
 			self._value = mapping.copy()
 		else:
 			self._value = {}
@@ -246,9 +246,9 @@ class TagCompound(Tag, abc.MutableMapping):
 	
 	def __setitem__(self, key, tag):
 		if type(key) is not str:
-			raise NBTInvalidOperation('Mapping key is not string')
+			raise NbtInvalidOperation('Mapping key is not string')
 		if not isinstance(tag, Tag):
-			raise NBTInvalidOperation('Mapping value is not instance of Tag')
+			raise NbtInvalidOperation('Mapping value is not instance of Tag')
 		self._value[key] = tag
 	
 	def __delitem__(self, key):
@@ -268,7 +268,7 @@ class TagCompound(Tag, abc.MutableMapping):
 			if not tagid:
 				break
 			if tagid not in _tagid_class_mapping:
-				raise NBTUnpackError('Unknown tag id {} in compound'.format(tagid))
+				raise NbtUnpackError('Unknown tag id {} in compound'.format(tagid))
 			name = TagString.read(stream).value
 			tag = _tagid_class_mapping[tagid].read(stream)
 			tagdict[name] = tag
@@ -304,7 +304,7 @@ _tagid_class_mapping = {
 def read_root_tag(stream):
 	magic = stream.read(3)
 	if magic != b'\x0a\x00\x00':
-		raise NBTUnpackError('Invalid base tag')
+		raise NbtUnpackError('Invalid base tag')
 	return TagCompound.read(stream)
 
 def read_nbt_file(file):
