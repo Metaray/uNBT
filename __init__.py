@@ -47,6 +47,12 @@ class _TagNumber(Tag):
 			value -= cls._mod
 		return value
 	
+	def __int__(self):
+		return int(self._value)
+	
+	def __float__(self):
+		return float(self._value)
+	
 	@classmethod
 	def read(cls, stream):
 		rawnum = stream.read(cls._fmt.size)
@@ -139,6 +145,9 @@ class TagString(Tag):
 			raise ValueError('Value must have type str')
 		self._value = value
 	
+	def __str__(self):
+		return self._value
+	
 	def __repr__(self):
 		return 'TagString({})'.format(repr(self._value))
 	
@@ -153,7 +162,7 @@ class TagString(Tag):
 		stream.write(raw)
 
 
-class TagList(Tag, abc.Sequence):
+class TagList(Tag, abc.MutableSequence):
 	__slots__ = ('item_cls',)
 	tagid = 9
 	
@@ -162,7 +171,7 @@ class TagList(Tag, abc.Sequence):
 			raise NBTInvalidOperation('Item class must be some Tag')
 		self.item_cls = item_cls
 		if items is not None:
-			if not all(isinstance(item, item_cls) for item in items):
+			if not all(type(item) is item_cls for item in items):
 				raise NBTInvalidOperation('All list elements must be same Tag')
 			self._value = list(items)
 		else:
@@ -171,8 +180,21 @@ class TagList(Tag, abc.Sequence):
 	def __len__(self):
 		return len(self._value)
 	
-	def __getitem__(self, key):
-		return self._value[key]
+	def __getitem__(self, index):
+		return self._value[index]
+	
+	def __setitem__(self, index, tag):
+		if type(tag) is not self.item_cls:
+			raise NBTInvalidOperation('Setting wrong tag type for this list')
+		self._value[index] = tag
+	
+	def __delitem__(self, index):
+		del self._value[index]
+	
+	def insert(self, index, tag):
+		if type(tag) is not self.item_cls:
+			raise NBTInvalidOperation('Inserting wrong tag type for this list')
+		self._value.insert(index, tag)
 	
 	def __repr__(self):
 		return 'TagList(type={}, len={})'.format(self.item_cls.__name__, len(self._value))
@@ -199,7 +221,7 @@ class TagList(Tag, abc.Sequence):
 			tag.write(stream)
 
 
-class TagCompound(Tag, abc.Mapping):
+class TagCompound(Tag, abc.MutableMapping):
 	__slots__ = ()
 	tagid = 10
 
@@ -221,6 +243,16 @@ class TagCompound(Tag, abc.Mapping):
 	
 	def __getitem__(self, key):
 		return self._value[key]
+	
+	def __setitem__(self, key, tag):
+		if type(key) is not str:
+			raise NBTInvalidOperation('Mapping key is not string')
+		if not isinstance(tag, Tag):
+			raise NBTInvalidOperation('Mapping value is not instance of Tag')
+		self._value[key] = tag
+	
+	def __delitem__(self, key):
+		del self._value[key]
 	
 	def __iter__(self):
 		return iter(self._value)
