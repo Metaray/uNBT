@@ -119,7 +119,6 @@ class _TagNumberArray(Tag):
 	
 	def write(self, stream):
 		stream.write(TagInt._fmt.pack(len(self._value)))
-		# stream.write(struct.pack('>{}{}'.format(len(self._value), self._itype), *self._value))
 		if _do_byteswap:
 			out = array.array(self._itype, self._value)
 			out.byteswap()
@@ -308,9 +307,9 @@ _tagid_class_mapping = {
 
 
 def read_root_tag(stream):
-	magic = stream.read(3)
-	if magic != b'\x0a\x00\x00':
+	if stream.read(1) != b'\x0a':
 		raise NbtUnpackError('Invalid base tag')
+	root_name = TagString.read(stream)
 	return TagCompound.read(stream)
 
 def read_nbt_file(file):
