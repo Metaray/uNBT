@@ -318,7 +318,7 @@ def read_nbt_file(file):
 		if type(file) is str:
 			file_handle = file = open(file, 'rb')
 		magic = file.read(2)
-		file.seek(0)
+		file.seek(-2, 1)
 		if magic == b'\x1f\x8b':
 			file = gzip.open(file, 'rb')
 		return read_root_tag(file)
