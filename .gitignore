@@ -1,3 +1,21 @@
-*.dat
-*.txt
+# Byte-compiled / optimized / DLL files
 __pycache__/
+*.py[cod]
+
+# Distribution / packaging
+.eggs/
+.Python
+env/
+bin/
+build/
+develop-eggs/
+dist/
+eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
