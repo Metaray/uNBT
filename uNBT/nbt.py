@@ -123,6 +123,8 @@ class _TagNumberArray(Tag):
 			out = array.array(self._itype, self._value)
 			out.byteswap()
 			out.tofile(stream)
+		else:
+			self._value.tofile(stream)
 
 class TagByteArray(_TagNumberArray):
 	__slots__ = ()
