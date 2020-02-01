@@ -1,4 +1,6 @@
 from .nbt import TagByteArray, TagIntArray, TagList, TagCompound, TagString
+import os
+import re
 
 def fancy_tag_format(tag, indent='  ', level=0):
 	out = ''
@@ -20,3 +22,30 @@ def fancy_tag_format(tag, indent='  ', level=0):
 	else:
 		out += '{}({})'.format(tag_name, tag._value)
 	return out
+
+def enumerate_region_files(path):
+	'Enumerate .mcr and .mca files in provided directory'
+	files = []
+	for name in os.listdir(path):
+		m = re.match(r'r\.(-?\d+)\.(-?\d+)\.mc[ar]$', name)
+		if m:
+			fullpath = os.path.join(path, name)
+			files.append((fullpath, int(m.group(1)), int(m.group(2))))
+	return files
+
+def enumerate_world(path):
+	'Enumerate dimesions region files in provieded world directory'
+	dims = {}
+	for name in os.listdir(path):
+		fullpath = os.path.join(path, name)
+		if not os.path.isdir(fullpath):
+			continue
+		if name == 'region':
+			dims[0] = enumerate_region_files(fullpath)
+		else:
+			m = re.match(r'DIM(-?\d+)$', name)
+			if m:
+				regpath = os.path.join(fullpath, 'region')
+				if os.path.isdir(regpath):
+					dims[int(m.group(1))] = enumerate_region_files(regpath)
+	return dims
