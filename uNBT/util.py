@@ -1,6 +1,8 @@
 from .nbt import TagByteArray, TagIntArray, TagList, TagCompound, TagString
 import os
 import re
+from collections import namedtuple
+
 
 def fancy_tag_format(tag, indent='  ', level=0):
 	out = ''
@@ -23,14 +25,17 @@ def fancy_tag_format(tag, indent='  ', level=0):
 		out += '{}({})'.format(tag_name, tag._value)
 	return out
 
+
+RegionFileInfo = namedtuple('RegionFileInfo', ['path', 'x', 'z'])
+
 def enumerate_region_files(path):
 	'Enumerate .mcr and .mca files in provided directory'
 	files = []
 	for name in os.listdir(path):
 		m = re.match(r'r\.(-?\d+)\.(-?\d+)\.mc[ar]$', name)
-		if m:
-			fullpath = os.path.join(path, name)
-			files.append((fullpath, int(m.group(1)), int(m.group(2))))
+		fullpath = os.path.join(path, name)
+		if m and os.path.isfile(fullpath):
+			files.append(RegionFileInfo(fullpath, int(m.group(1)), int(m.group(2))))
 	return files
 
 def enumerate_world(path):
