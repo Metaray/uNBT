@@ -17,6 +17,10 @@ class Region:
     CHUNKS_WIDTH = 32
 
     def __init__(self):
+        # Non-generated chunks are stored as None
+        # When first read chunks are stored as compressed bytes
+        # Getting a chunk automatically decompresses bytes and parses NBT
+        # Parsed chunks are stored as Chunk
         self._chunks = [[None] * self.CHUNKS_WIDTH for _ in range(self.CHUNKS_WIDTH)]
     
     @classmethod
@@ -26,7 +30,7 @@ class Region:
             chunk_locations = []
             for z in range(cls.CHUNKS_WIDTH):
                 for x in range(cls.CHUNKS_WIDTH):
-                    # big endian, [0..2] offset in 4KiB sectors, [3] length in 4KiB sectors runded up
+                    # big endian, [0..2] offset in 4KiB sectors, [3] length in 4KiB sectors rounded up
                     loc_info, = struct.unpack('>I', rflie.read(4))
                     if loc_info == 0:
                         continue
@@ -53,3 +57,10 @@ class Region:
         chunk_nbt = Chunk(read_root_tag(BytesIO(data)))
         self._chunks[z][x] = chunk_nbt
         return chunk_nbt
+    
+    def iter_nonempty(self):
+        for z in range(self.CHUNKS_WIDTH):
+            for x in range(self.CHUNKS_WIDTH):
+                chunk = self.get_chunk(x, z)
+                if chunk:
+                    yield chunk
