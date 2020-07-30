@@ -1,7 +1,7 @@
 import zlib
 import struct
 from io import BytesIO
-from .nbt import read_root_tag
+from .nbt import read_nbt_file
 
 
 class Chunk:
@@ -54,7 +54,7 @@ class Region:
         if type(data) is not bytes:
             return data
         data = zlib.decompress(data)
-        chunk_nbt = Chunk(read_root_tag(BytesIO(data)))
+        chunk_nbt = Chunk(read_nbt_file(BytesIO(data)))
         self._chunks[z][x] = chunk_nbt
         return chunk_nbt
     

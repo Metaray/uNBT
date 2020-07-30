@@ -308,35 +308,39 @@ _tagid_class_mapping = {
 }
 
 
-def read_root_tag(stream):
-	if stream.read(1) != b'\x0a':
-		raise NbtUnpackError('Invalid base tag')
-	root_name = TagString.read(stream)
-	return TagCompound.read(stream)
-
 def read_nbt_file(file):
 	file_handle = None
 	try:
 		if type(file) is str:
 			file_handle = file = open(file, 'rb')
-		magic = file.read(2)
+		
+		gz_magic = file.read(2)
 		file.seek(-2, 1)
-		if magic == b'\x1f\x8b':
+		if gz_magic == b'\x1f\x8b':
 			file = gzip.open(file, 'rb')
-		return read_root_tag(file)
+		
+		if file.read(1) != b'\x0a':
+			raise NbtUnpackError('Invalid base tag')
+		root_name = TagString.read(file) # todo: don't discard
+		return TagCompound.read(file)
+	
 	finally:
 		if file_handle is not None:
 			file_handle.close()
 
+
 def write_nbt_file(file, root, compress=True):
 	file_handle = None
 	try:
+		if type(file) is str:
+			file_handle = file = open(file, 'wb')
+		
 		if compress:
-			file_handle = gzip.open(file, 'wb')
-		else:
-			file_handle = open(file, 'wb')
-		file_handle.write(b'\x0a\x00\x00')
-		root.write(file_handle)
+			file_handle = file = gzip.open(file, 'wb')
+		
+		file.write(b'\x0a\x00\x00')
+		root.write(file)
+
 	finally:
 		if file_handle is not None:
 			file_handle.close()
