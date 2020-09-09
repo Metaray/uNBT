@@ -28,29 +28,35 @@ def fancy_tag_format(tag, indent='  ', level=0):
 
 RegionFileInfo = namedtuple('RegionFileInfo', ['path', 'x', 'z'])
 
-def enumerate_region_files(path):
-	'Enumerate .mcr and .mca files in provided directory'
+def enumerate_region_files(path, fmt='anvil'):
+	'Enumerate .mcr or .mca files in provided directory'
+	if fmt == 'anvil':
+		ext = 'mca'
+	elif fmt == 'region':
+		ext = 'mcr'
+	else:
+		raise ValueError('Unknown format')
 	files = []
 	for name in os.listdir(path):
-		m = re.match(r'r\.(-?\d+)\.(-?\d+)\.mc[ar]$', name)
+		m = re.match(r'r\.(-?\d+)\.(-?\d+)\.' + ext + '$', name)
 		fullpath = os.path.join(path, name)
 		if m and os.path.isfile(fullpath):
 			files.append(RegionFileInfo(fullpath, int(m.group(1)), int(m.group(2))))
 	return files
 
-def enumerate_world(path):
-	'Enumerate dimesions region files in provieded world directory'
+def enumerate_world(path, fmt='anvil'):
+	'Enumerate dimensions in provieded world directory'
 	dims = {}
 	for name in os.listdir(path):
 		fullpath = os.path.join(path, name)
 		if not os.path.isdir(fullpath):
 			continue
 		if name == 'region':
-			dims[0] = enumerate_region_files(fullpath)
+			dims[0] = enumerate_region_files(fullpath, fmt)
 		else:
 			m = re.match(r'DIM(-?\d+)$', name)
 			if m:
 				regpath = os.path.join(fullpath, 'region')
 				if os.path.isdir(regpath):
-					dims[int(m.group(1))] = enumerate_region_files(regpath)
+					dims[int(m.group(1))] = enumerate_region_files(regpath, fmt)
 	return dims
