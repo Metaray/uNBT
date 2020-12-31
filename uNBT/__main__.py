@@ -25,6 +25,7 @@ else:
 		print('File {} does not exist'.format(path))
 		exit(3)
 	
-	root = read_nbt_file(path)
+	root, root_name = read_nbt_file(path, with_name=True)
 	if cmd == 'print':
+		print('Root name:', repr(root_name))
 		print(fancy_tag_format(root))
