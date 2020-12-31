@@ -105,7 +105,7 @@ class _TagNumberArray(Tag):
 	def __init__(self, numbers):
 		self._value = array.array(self._itype, numbers)
 	
-	def __repr__(self):
+	def __str__(self):
 		return '{}(len={})'.format(self.__class__.__name__, len(self._value))
 	
 	@classmethod
@@ -203,6 +203,9 @@ class TagList(Tag, abc.MutableSequence):
 		self._value.insert(index, tag)
 	
 	def __repr__(self):
+		return 'TagList({}, {})'.format(self.item_cls.__name__, self._value)
+
+	def __str__(self):
 		return 'TagList(type={}, len={})'.format(self.item_cls.__name__, len(self._value))
 	
 	@classmethod
@@ -241,7 +244,7 @@ class TagCompound(Tag, abc.MutableMapping):
 		else:
 			self._value = {}
 	
-	def __repr__(self):
+	def __str__(self):
 		return 'TagCompound(len={})'.format(len(self._value))
 	
 	def __len__(self):
@@ -265,8 +268,8 @@ class TagCompound(Tag, abc.MutableMapping):
 
 	@classmethod
 	def read(cls, stream):
-		tagdict = OrderedDict()
-		# tagdict = {}
+		# tagdict = OrderedDict() # TODO: switch to OrderedDict for python < 3.7 ?
+		tagdict = {}
 		stream_read = stream.read
 
 		while True:
