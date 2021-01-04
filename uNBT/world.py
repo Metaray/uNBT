@@ -2,6 +2,8 @@ import zlib
 import struct
 from io import BytesIO
 from .nbt import read_nbt_file
+from .util import region_pos_from_path
+import os
 
 
 class Chunk:
@@ -26,25 +28,45 @@ class Region:
     @classmethod
     def from_file(cls, path):
         region = cls()
+        rxz = region_pos_from_path(path)
+        
         with open(path, 'rb') as rflie:
             chunk_locations = []
             for z in range(cls.CHUNKS_WIDTH):
                 for x in range(cls.CHUNKS_WIDTH):
                     # big endian, [0..2] offset in 4KiB sectors, [3] length in 4KiB sectors rounded up
-                    loc_info, = struct.unpack('>I', rflie.read(4))
+                    try:
+                        loc_info, = struct.unpack('>I', rflie.read(4))
+                    except struct.error:
+                        return region # empty or invalid file
+                    
                     if loc_info == 0:
-                        continue
-                    chunk_locations.append(((loc_info >> 8) << 12, x, z))
+                        continue # chunk not present
+                    
+                    sector_count = loc_info & 255
+                    chunk_locations.append(((loc_info >> 8) * 4096, x, z))
             
-            # Sort for seek performance
+            # Sort by offset for read performance
             for offset, x, z in sorted(chunk_locations):
                 rflie.seek(offset)
-                length, = struct.unpack('>I', rflie.read(4))
-                compression = ord(rflie.read(1))
-                # 1 - Gzip (unused), 2 - Zlib
-                if compression != 2:
+                length, compression = struct.unpack('>IB', rflie.read(5))
+                
+                # 1 - Gzip (unused), 2 - Zlib, 3 - uncompressed
+                # If high bit is set - chunk is in external file c.[x].[z].mcc
+                if (compression & 127) != 2:
+                    # raise NotImplementedError('Unsupported compression format {}'.format(compression))
+                    print('Warning: skipping chunk with unsupported compression')
                     continue
-                data = rflie.read(length)
+                
+                if compression & 128:
+                    if rxz is None:
+                        raise ValueError('Found external chunk, but no region position available')
+                    cx, cz = x + rxz[0] * 32, z + rxz[1] * 32
+                    cname = 'c.{}.{}.mcc'.format(cx, cz)
+                    with open(os.path.join(os.path.dirname(path), cname), 'rb') as cfile:
+                        data = cfile.read()
+                else:
+                    data = rflie.read(length)
                 region._chunks[z][x] = data
 
         return region

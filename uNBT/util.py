@@ -28,6 +28,13 @@ def fancy_tag_format(tag, indent='  ', level=0):
 
 RegionFileInfo = namedtuple('RegionFileInfo', ['path', 'x', 'z'])
 
+def region_pos_from_path(path):
+	name = os.path.basename(path)
+	m = re.match(r'^r\.(-?\d+)\.(-?\d+)\.mc[ar]$', name)
+	if m:
+		return (int(m.group(1)), int(m.group(2)))
+	return None
+
 def enumerate_region_files(path, fmt='anvil'):
 	'Enumerate .mcr or .mca files in provided directory'
 	if fmt == 'anvil':
@@ -38,10 +45,10 @@ def enumerate_region_files(path, fmt='anvil'):
 		raise ValueError('Unknown format')
 	files = []
 	for name in os.listdir(path):
-		m = re.match(r'r\.(-?\d+)\.(-?\d+)\.' + ext + '$', name)
 		fullpath = os.path.join(path, name)
-		if m and os.path.isfile(fullpath):
-			files.append(RegionFileInfo(fullpath, int(m.group(1)), int(m.group(2))))
+		rxz = region_pos_from_path(name)
+		if rxz and name.endswith(ext) and os.path.isfile(fullpath):
+			files.append(RegionFileInfo(fullpath, rxz[0], rxz[1]))
 	return files
 
 def enumerate_world(path, fmt='anvil'):
