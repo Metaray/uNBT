@@ -3,8 +3,10 @@ import gzip
 import array
 from collections import OrderedDict, abc
 import sys
+from io import BytesIO
 
 _do_byteswap = sys.byteorder == 'little'
+
 
 class NbtError(Exception):
 	pass
@@ -34,6 +36,15 @@ class Tag:
 	
 	def write(self, stream):
 		raise NotImplementedError('Cannot write instances of Tag')
+
+	@classmethod
+	def from_bytes(cls, bytes):
+		return cls.read(BytesIO(bytes))
+
+	def to_bytes(self):
+		buffer = BytesIO()
+		self.write(buffer)
+		return buffer.getvalue()
 
 
 class _TagNumber(Tag):
