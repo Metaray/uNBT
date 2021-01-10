@@ -5,6 +5,11 @@ from .nbt import read_nbt_file
 from .util import region_pos_from_path
 import os
 
+__all__ = [
+    'Chunk',
+    'Region',
+]
+
 
 class Chunk:
     def __init__(self, chunk_nbt):

@@ -3,6 +3,14 @@ import os
 import re
 from collections import namedtuple
 
+__all__ = [
+	'fancy_tag_format',
+	'RegionFileInfo',
+	'region_pos_from_path',
+	'enumerate_region_files',
+	'enumerate_world',
+]
+
 
 def fancy_tag_format(tag, indent='  ', level=0):
 	out = ''

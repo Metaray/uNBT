@@ -5,6 +5,27 @@ from collections import OrderedDict, abc
 import sys
 from io import BytesIO
 
+__all__ = [
+	'NbtError',
+	'NbtUnpackError',
+	'NbtInvalidOperation',
+	'Tag',
+	'TagByte',
+	'TagShort',
+	'TagInt',
+	'TagLong',
+	'TagFloat',
+	'TagDouble',
+	'TagByteArray',
+	'TagString',
+	'TagList',
+	'TagCompound',
+	'TagIntArray',
+	'TagLongArray',
+	'read_nbt_file',
+	'write_nbt_file',
+]
+
 _do_byteswap = sys.byteorder == 'little'
 
 
