@@ -1,11 +1,12 @@
 import setuptools
+from uNBT import __version__
 
 with open('README.md', 'r', encoding='utf-8') as f:
     readme_text = f.read()
 
 setuptools.setup(
     name='uNBT',
-    version='1.0.0',
+    version=__version__,
     description='Simple NBT manipulation library',
     long_description=readme_text,
     long_description_content_type='text/markdown',
