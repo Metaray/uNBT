@@ -1,7 +1,7 @@
 import struct
 import gzip
-import array
-from collections import OrderedDict, abc
+from array import array
+from collections import abc
 import sys
 from io import BytesIO
 
@@ -26,7 +26,21 @@ __all__ = [
 	'write_nbt_file',
 ]
 
+
 _do_byteswap = sys.byteorder == 'little'
+
+_struct_byte = struct.Struct('>b')
+_struct_short = struct.Struct('>h')
+_struct_int = struct.Struct('>i')
+
+def _compound_read_name(stream):
+	size, = _struct_short.unpack(stream.read(2))
+	return stream.read(size).decode('utf-8')
+
+def _compound_write_name(stream, name):
+	raw = name.encode('utf-8')
+	stream.write(_struct_short.pack(len(raw)))
+	stream.write(raw)
 
 
 class NbtError(Exception):
@@ -70,14 +84,11 @@ class Tag:
 
 class _TagNumber(Tag):
 	def __init__(self, value=0):
-		self._value = self._normalize(value)
-	
-	@classmethod
-	def _normalize(cls, value):
-		value = int(value) % cls._mod
-		if value >= cls._mod >> 1:
-			value -= cls._mod
-		return value
+		value = int(value) % self._mod
+		if value < self._mod >> 1:
+			self._value = value
+		else:
+			self._value = value - self._mod
 	
 	def __int__(self):
 		return int(self._value)
@@ -109,7 +120,7 @@ class TagInt(_TagNumber):
 	__slots__ = ()
 	tagid = 3
 	_mod = 2 ** 32
-	_fmt = struct.Struct('>l')
+	_fmt = struct.Struct('>i')
 
 class TagLong(_TagNumber):
 	__slots__ = ()
@@ -123,9 +134,8 @@ class TagDouble(_TagNumber):
 	tagid = 6
 	_fmt = struct.Struct('>d')
 	
-	@classmethod
-	def _normalize(cls, value):
-		return float(value)
+	def __init__(self, value=0.0):
+		self._value = float(value)
 
 class TagFloat(TagDouble):
 	__slots__ = ()
@@ -135,24 +145,24 @@ class TagFloat(TagDouble):
 
 class _TagNumberArray(Tag):
 	def __init__(self, numbers):
-		self._value = array.array(self._itype, numbers)
+		self._value = array(self._itype, numbers)
 	
 	def __str__(self):
 		return '{}(len={})'.format(self.__class__.__name__, len(self._value))
 	
 	@classmethod
 	def read(cls, stream):
-		length, = TagInt._fmt.unpack(stream.read(4))
-		values = array.array(cls._itype)
+		length, = _struct_int.unpack(stream.read(4))
+		values = array(cls._itype)
 		values.frombytes(stream.read(length * values.itemsize))
 		if _do_byteswap:
 			values.byteswap()
 		return cls(values)
 	
 	def write(self, stream):
-		stream.write(TagInt._fmt.pack(len(self._value)))
+		stream.write(_struct_int.pack(len(self._value)))
 		if _do_byteswap:
-			out = array.array(self._itype, self._value)
+			out = array(self._itype, self._value)
 			out.byteswap()
 			out.tofile(stream)
 		else:
@@ -191,12 +201,12 @@ class TagString(Tag):
 	
 	@classmethod
 	def read(cls, stream):
-		size, = TagShort._fmt.unpack(stream.read(2))
+		size, = _struct_short.unpack(stream.read(2))
 		return cls(stream.read(size).decode('utf-8'))
 
 	def write(self, stream):
 		raw = self._value.encode('utf-8')
-		stream.write(TagShort._fmt.pack(len(raw)))
+		stream.write(_struct_short.pack(len(raw)))
 		stream.write(raw)
 
 
@@ -248,7 +258,7 @@ class TagList(Tag, abc.MutableSequence):
 		itemcls = _tagid_class_mapping[itemid]
 		itemcls_read = itemcls.read
 		
-		size, = TagInt._fmt.unpack(stream.read(4))
+		size, = _struct_int.unpack(stream.read(4))
 		tags = [itemcls_read(stream) for _ in range(size)]
 		
 		thislist = cls(itemcls)
@@ -256,8 +266,8 @@ class TagList(Tag, abc.MutableSequence):
 		return thislist
 
 	def write(self, stream):
-		stream.write(TagByte._fmt.pack(self.item_cls.tagid))
-		stream.write(TagInt._fmt.pack(len(self._value)))
+		stream.write(_struct_byte.pack(self.item_cls.tagid))
+		stream.write(_struct_int.pack(len(self._value)))
 		for tag in self._value:
 			tag.write(stream)
 
@@ -300,7 +310,6 @@ class TagCompound(Tag, abc.MutableMapping):
 
 	@classmethod
 	def read(cls, stream):
-		# tagdict = OrderedDict() # TODO: switch to OrderedDict for python < 3.7 ?
 		tagdict = {}
 		stream_read = stream.read
 
@@ -310,7 +319,7 @@ class TagCompound(Tag, abc.MutableMapping):
 				break
 			if tagid not in _tagid_class_mapping:
 				raise NbtUnpackError('Unknown tag id {} in compound'.format(tagid))
-			name = TagString.read(stream).value
+			name = _compound_read_name(stream)
 			tag = _tagid_class_mapping[tagid].read(stream)
 			tagdict[name] = tag
 		
@@ -320,8 +329,8 @@ class TagCompound(Tag, abc.MutableMapping):
 	
 	def write(self, stream):
 		for name, tag in self._value.items():
-			stream.write(TagByte._fmt.pack(tag.tagid))
-			TagString(name).write(stream)
+			stream.write(_struct_byte.pack(tag.tagid))
+			_compound_write_name(stream, name)
 			tag.write(stream)
 		stream.write(b'\x00')
 
@@ -354,9 +363,9 @@ def read_nbt_file(file, *, with_name=False):
 		if gz_magic == b'\x1f\x8b':
 			file = gzip.open(file, 'rb')
 		
-		if file.read(1) != b'\x0a':
+		if file.read(1)[0] != TagCompound.tagid:
 			raise NbtUnpackError('Invalid base tag')
-		root_name = TagString.read(file).value
+		root_name = _compound_read_name(file)
 		root = TagCompound.read(file)
 		if with_name:
 			return root, root_name
@@ -378,7 +387,7 @@ def write_nbt_file(file, root, *, root_name='', compress=True):
 			file_handle = file = gzip.open(file, 'wb')
 		
 		file.write(b'\x0a')
-		TagString(root_name).write(file)
+		_compound_write_name(file, root_name)
 		root.write(file)
 
 	finally:
