@@ -378,6 +378,9 @@ def read_nbt_file(file, *, with_name=False):
 
 
 def write_nbt_file(file, root, *, root_name='', compress=True):
+	if type(root) is not TagCompound:
+		raise NbtInvalidOperation('Root must be a TagCompound')
+
 	file_handle = None
 	try:
 		if type(file) is str:
