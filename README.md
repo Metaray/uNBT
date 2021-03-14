@@ -13,7 +13,8 @@ I'm developing this library primarily for use in my personal projects so API may
 # Examples
 
 Reading level.dat and displaying info about player position:
-```
+
+```python
 import uNBT as nbt
 
 level = nbt.read_nbt_file('level.dat')
