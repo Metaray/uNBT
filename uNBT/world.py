@@ -1,3 +1,4 @@
+# Note: nothing in this API is final
 import zlib
 import struct
 from io import BytesIO
@@ -12,18 +13,30 @@ __all__ = [
 
 
 class Chunk:
+    """Class holding chunk's NBT data."""
+
     def __init__(self, chunk_nbt):
+        """Create new integer number tag.
+
+		Args:
+			chunk_nbt (TagCompound): Chunk's nbt data.
+		"""
         self._chunk_nbt = chunk_nbt
     
     @property
     def nbt(self):
+        """TagComound: Get chunk's NBT data"""
         return self._chunk_nbt
 
 
 class Region:
+    """Class holding region file data."""
+
     CHUNKS_WIDTH = 32
+    """int: Width of region in chunks."""
 
     def __init__(self):
+        """Create empty region."""
         # Non-generated chunks are stored as None
         # When first read chunks are stored as compressed bytes
         # Getting a chunk automatically decompresses bytes and parses NBT
@@ -32,6 +45,14 @@ class Region:
     
     @classmethod
     def from_file(cls, path):
+        """Load region data from file.
+
+        Args:
+            path (str): Path to regon file.
+        
+        Returns:
+            Region: Loaded region file.
+        """
         region = cls()
         rxz = region_pos_from_path(path)
         
@@ -65,6 +86,7 @@ class Region:
                 
                 if compression & 128:
                     if rxz is None:
+                        # TODO: chunks have their position duplicated in NBT, read from there.
                         raise ValueError('Found external chunk, but no region position available')
                     cx, cz = x + rxz[0] * 32, z + rxz[1] * 32
                     cname = 'c.{}.{}.mcc'.format(cx, cz)
@@ -77,6 +99,15 @@ class Region:
         return region
 
     def get_chunk(self, x, z):
+        """Get chunk at in-region coordinates.
+
+        Args:
+            x (int): X coordinate inside region.
+            z (int): Z coordinate inside region.
+        
+        Returns:
+            Chunk, optional: Requested chunk.
+        """
         data = self._chunks[z][x]
         if type(data) is not bytes:
             return data
@@ -86,6 +117,11 @@ class Region:
         return chunk_nbt
     
     def iter_nonempty(self):
+        """Iterate over all chunks present in region.
+
+        Yields:
+            Chunk: Next nonempty chunk.
+        """
         for z in range(self.CHUNKS_WIDTH):
             for x in range(self.CHUNKS_WIDTH):
                 chunk = self.get_chunk(x, z)

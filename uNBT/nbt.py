@@ -44,16 +44,21 @@ def _compound_write_name(stream, name):
 
 
 class NbtError(Exception):
-	pass
+	"""Base exception of errors occuring during operations with NBT tags."""
+
 class NbtUnpackError(NbtError):
-	pass
+	"""Error occured during NBT deserialization."""
+
 class NbtInvalidOperation(NbtError):
-	pass
+	"""Error occured when performing some operation on NBT tags."""
 
 
 class Tag:
+	"""Abstract base class for all NBT tags."""
 	__slots__ = ('_value',)
+	
 	tagid = 0
+	"""int: Numerical id of a this tag type."""
 	
 	def __init__(self):
 		raise NotImplementedError('Cannot create instances of base Tag')
@@ -63,20 +68,63 @@ class Tag:
 	
 	@property
 	def value(self):
+		"""Get stored tag value."""
 		return self._value
 	
 	@classmethod
 	def read(cls, stream):
+		"""Read this tag from a provided stream.
+
+		Note:
+			Doesn't include preceesing name or tag id present in some cases.
+			Doesn't check if all bytes have been read.
+
+		Args:
+			stream (file-like): Stream to read a tag from.
+		
+		Returns:
+			Tag: Tag read from `stream`.
+		
+		Raises:
+			NbtUnpackError: If some unknown tag is encountered.
+		"""
 		raise NotImplementedError('Cannot read instances of Tag')
 	
 	def write(self, stream):
+		"""Write this tag to a provided stream.
+
+		Args:
+			stream (file-like): Stream to write this tag to.
+		"""
 		raise NotImplementedError('Cannot write instances of Tag')
 
 	@classmethod
 	def from_bytes(cls, bytes):
+		"""Read this tag from provided bytes.
+
+		Note:
+			Helper method that calls `read`.
+
+		Args:
+			bytes (bytes): Bytes to read a tag from.
+		
+		Returns:
+			Tag: Tag read from `bytes`.
+		
+		Raises:
+			NbtUnpackError: If some unknown tag is encountered.
+		"""
 		return cls.read(BytesIO(bytes))
 
 	def to_bytes(self):
+		"""Serialize this tag to bytes.
+
+		Note:
+			Helper method that calls `write`.
+
+		Returns:
+			bytes: Bytes of serialized tag.
+		"""
 		buffer = BytesIO()
 		self.write(buffer)
 		return buffer.getvalue()
@@ -84,6 +132,11 @@ class Tag:
 
 class _TagNumber(Tag):
 	def __init__(self, value=0):
+		"""Create new integer number tag.
+
+		Args:
+			value: Any object convertable to int. Defaults to 0.
+		"""
 		value = int(value) % self._mod
 		if value < self._mod >> 1:
 			self._value = value
@@ -135,6 +188,11 @@ class TagDouble(_TagNumber):
 	_fmt = struct.Struct('>d')
 	
 	def __init__(self, value=0.0):
+		"""Create new floating point number tag.
+
+		Args:
+			value: Any object convertable to float. Defaults to 0.0
+		"""
 		self._value = float(value)
 
 class TagFloat(TagDouble):
@@ -145,6 +203,11 @@ class TagFloat(TagDouble):
 
 class _TagNumberArray(Tag):
 	def __init__(self, numbers):
+		"""Create new number array tag.
+
+		Args:
+			numbers (array-like): Any array of integers in correct range.
+		"""
 		self._value = array(self._itype, numbers)
 	
 	def __str__(self):
@@ -189,6 +252,11 @@ class TagString(Tag):
 	tagid = 8
 	
 	def __init__(self, value):
+		"""Create new string tag.
+
+		Args:
+			value (str): Value of this tag.
+		"""
 		if not isinstance(value, str):
 			raise ValueError('Value must have type str')
 		self._value = value
@@ -215,6 +283,16 @@ class TagList(Tag, abc.MutableSequence):
 	tagid = 9
 	
 	def __init__(self, item_cls, items=None):
+		"""Create new list tag.
+
+		Args:
+			item_cls (Tag): The tag type this list holds.
+			items (list of Tag): Starting contents of this tag. Default is empty list.
+		
+		Raises:
+			NbtInvalidOperation: If `item_cls` is not a tag class
+				or some tag in `items` doesn't match `item_cls`.
+		"""
 		if not issubclass(item_cls, Tag):
 			raise NbtInvalidOperation('Item class must be some Tag')
 		self.item_cls = item_cls
@@ -277,6 +355,16 @@ class TagCompound(Tag, abc.MutableMapping):
 	tagid = 10
 
 	def __init__(self, mapping=None):
+		"""Create new compound tag.
+
+		Args:
+			mapping (dict): Starting contents of this tag. String to Tag mapping.
+				Default is empty dict.
+		
+		Raises:
+			NbtInvalidOperation: If some `mapping` values are not NBT tags
+				or some keys are not strings.
+		"""
 		if mapping is not None:
 			if any(not isinstance(item, Tag) for item in mapping.values()):
 				raise NbtInvalidOperation('Not all mapping elements are Tags')
@@ -353,6 +441,23 @@ _tagid_class_mapping = {
 
 
 def read_nbt_file(file, *, with_name=False):
+	"""Read file containing NBT data.
+
+	Expects to read compound root tag.
+	Compressed files are unpacked automatically.
+
+	Args:
+		file (str or file-like): Path to file or file-like object to read from.
+		with_name (bool): Return root tag name as well. Default is False.
+	
+	Returns:
+		Tag: Root tag read from file.
+		(or if with_name is True)
+		tuple(Tag, str): Root tag and it's name.
+	
+	Raises:
+		NbtUnpackError: If root tag is not TagCompound or some unknown tag is found.
+	"""
 	file_handle = None
 	try:
 		if type(file) is str:
@@ -378,6 +483,17 @@ def read_nbt_file(file, *, with_name=False):
 
 
 def write_nbt_file(file, root, *, root_name='', compress=True):
+	"""Write NBT storing file.
+
+	Args:
+		file (str or file-like): Path to file or file-like object to write to.
+		root (TagCompound): Root tag to write.
+		root_name (str): Name of root tag. Default is empty string.
+		compress (bool): Compress the data. Default is True.
+	
+	Raises:
+		NbtInvalidOperation: If root is not TagCompound.
+	"""
 	if type(root) is not TagCompound:
 		raise NbtInvalidOperation('Root must be a TagCompound')
 
