@@ -287,7 +287,7 @@ class TagList(Tag, abc.MutableSequence):
 
 		Args:
 			item_cls (Tag): The tag type this list holds.
-			items (list of Tag): Starting contents of this tag. Default is empty list.
+			items (iterable of Tag): Starting contents of this tag. Default is empty list.
 		
 		Raises:
 			NbtInvalidOperation: If `item_cls` is not a tag class
@@ -297,9 +297,10 @@ class TagList(Tag, abc.MutableSequence):
 			raise NbtInvalidOperation('Item class must be some Tag')
 		self.item_cls = item_cls
 		if items is not None:
+			items = list(items)
 			if not all(type(item) is item_cls for item in items):
 				raise NbtInvalidOperation('All list elements must be same Tag')
-			self._value = list(items)
+			self._value = items
 		else:
 			self._value = []
 
