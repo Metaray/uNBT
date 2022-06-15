@@ -1,16 +1,11 @@
 # μNBT
 
-Simple pure-python library for reading and writing Minecraft's NBT data.
+Simple pure-python library for reading and writing files in Minecraft's Named Binary Tag (NBT) format.
 
 Includes some additional utilities for reading world save data.
 
 
-# Notice
-
-I'm developing this library primarily for use in my personal projects so API may be unstable/quirky.
-
-
-# Examples
+## Example
 
 Reading level.dat and displaying info about player position:
 
