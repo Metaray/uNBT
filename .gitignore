@@ -22,3 +22,6 @@ var/
 
 # File editors folders
 .vscode/
+
+# Mypy files
+.mypy_cache/

@@ -12,6 +12,9 @@ setuptools.setup(
     long_description_content_type='text/markdown',
     url='https://github.com/Metaray/uNBT',
     packages=['uNBT'],
+    package_data={
+        '': ['*.pyi', 'py.typed'],
+    },
     python_requires='>=3.5',
     license='MIT',
     classifiers=[
