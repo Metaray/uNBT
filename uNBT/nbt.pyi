@@ -17,6 +17,10 @@ class Tag:
 
     def __init__(self) -> None: ...
     
+    def __eq__(self: T, other: T) -> bool: ...
+
+    __hash__ = None
+    
     @property
     def value(self) -> Any: ...
     

@@ -64,7 +64,14 @@ class Tag:
 		raise NotImplementedError('Cannot create instances of base Tag')
 	
 	def __repr__(self):
-		return '{}({})'.format(self.__class__.__name__, self._value)
+		return '{}({!r})'.format(self.__class__.__name__, self._value)
+	
+	def __eq__(self, other):
+		if type(self) is not type(other):
+			return False
+		return self._value == other._value
+	
+	__hash__ = None
 	
 	@property
 	def value(self):
@@ -264,9 +271,6 @@ class TagString(Tag):
 	def __str__(self):
 		return self._value
 	
-	def __repr__(self):
-		return 'TagString({})'.format(repr(self._value))
-	
 	@classmethod
 	def read(cls, stream):
 		size, = _struct_short.unpack(stream.read(2))
@@ -304,6 +308,11 @@ class TagList(Tag, abc.MutableSequence):
 		else:
 			self._value = []
 
+	def __eq__(self, other):
+		if type(self) is not type(other):
+			return False
+		return self.item_cls == other.item_cls and self._value == other._value
+
 	def __len__(self):
 		return len(self._value)
 	
@@ -327,7 +336,7 @@ class TagList(Tag, abc.MutableSequence):
 		return 'TagList({}, {})'.format(self.item_cls.__name__, self._value)
 
 	def __str__(self):
-		return 'TagList(type={}, len={})'.format(self.item_cls.__name__, len(self._value))
+		return 'TagList({}, len={})'.format(self.item_cls.__name__, len(self._value))
 	
 	@classmethod
 	def read(cls, stream):

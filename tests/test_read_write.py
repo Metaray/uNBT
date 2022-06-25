@@ -1,5 +1,5 @@
 import unittest
-from .utils import tags_equal, read_test_data
+from .utils import read_test_data
 import uNBT as nbt
 from io import BytesIO
 import sys
@@ -24,7 +24,7 @@ class TestReadWrite(unittest.TestCase):
 
         # Test that save-load cycle didn't lose data
         self.assertEqual(name, name2, "Root tag names aren't equal")
-        self.assertTrue(tags_equal(tag, tag2), 'Saved then read tag is different')
+        self.assertEqual(tag, tag2, 'Saved then read tag is different')
 
 
     # In newer python versions dictionary order is guaranteed so we can test for exact resave
