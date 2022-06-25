@@ -4,7 +4,7 @@ import uNBT as nbt
 from io import BytesIO
 import sys
 
-class ReadWriteTestCase(unittest.TestCase):
+class TestReadWrite(unittest.TestCase):
     def test_save_load_cycle(self):
         self.run_save_load_for('bigtest.nbt')
     
