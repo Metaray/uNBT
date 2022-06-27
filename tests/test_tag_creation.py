@@ -6,10 +6,12 @@ class TestTagCreation(unittest.TestCase):
     def run_integer_tests(self, tag_cls, x, mod):
         self.assertEqual(tag_cls().value, 0)
         self.assertEqual(tag_cls(x).value, x)
-        self.assertEqual(tag_cls(str(x)).value, x)
         self.assertEqual(tag_cls(x + 5 * mod).value, x)
         self.assertEqual(tag_cls(-x).value, -x)
         self.assertEqual(tag_cls(-x + 8 * mod).value, -x)
+
+        with self.assertRaises(ValueError):
+            tag_cls(str(x))
 
     def test_tag_byte(self):
         self.run_integer_tests(nbt.TagByte, 123, 2**8)
@@ -28,7 +30,9 @@ class TestTagCreation(unittest.TestCase):
         v = 1.2345
         self.assertEqual(tag_cls().value, 0.0)
         self.assertEqual(tag_cls(v).value, v)
-        self.assertEqual(tag_cls(str(v)).value, v)
+
+        with self.assertRaises(ValueError):
+            tag_cls(str(v))
 
     def test_tag_float(self):
         self.run_float_tests(nbt.TagFloat)

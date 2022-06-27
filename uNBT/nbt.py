@@ -143,17 +143,22 @@ class Tag:
 
 
 class _TagNumber(Tag):
+	__slots__ = ()
+
 	def __init__(self, value=0):
 		"""Create new integer number tag.
 
 		Args:
-			value: Any object convertable to int. Defaults to 0.
+			value (int): Value of tag. Default is 0.
 		"""
-		value = int(value) % self._mod
-		if value < self._mod >> 1:
+		if not isinstance(value, int):
+			raise ValueError('Tag value must be an int')
+		mod = self._mod
+		value = int(value) % mod
+		if value < (mod >> 1):
 			self._value = value
 		else:
-			self._value = value - self._mod
+			self._value = value - mod
 	
 	def __int__(self):
 		return int(self._value)
@@ -163,8 +168,9 @@ class _TagNumber(Tag):
 	
 	@classmethod
 	def read(cls, stream):
-		rawnum = stream.read(cls._fmt.size)
-		return cls(cls._fmt.unpack(rawnum)[0])
+		fmt = cls._fmt
+		x, = fmt.unpack(stream.read(fmt.size))
+		return cls(x)
 	
 	def write(self, stream):
 		stream.write(self._fmt.pack(self._value))
@@ -203,9 +209,11 @@ class TagDouble(_TagNumber):
 		"""Create new floating point number tag.
 
 		Args:
-			value: Any object convertable to float. Defaults to 0.0
+			value (float): Value of tag. Default is 0.0
 		"""
-		self._value = float(value)
+		if not isinstance(value, float):
+			raise ValueError('Tag value must be a float')
+		self._value = value
 
 class TagFloat(TagDouble):
 	__slots__ = ()
@@ -214,13 +222,18 @@ class TagFloat(TagDouble):
 
 
 class _TagNumberArray(Tag):
+	__slots__ = ()
+	
 	def __init__(self, numbers):
 		"""Create new number array tag.
 
 		Args:
 			numbers (array-like): Any array of integers in correct range.
 		"""
-		self._value = array(self._itype, numbers)
+		if numbers is not None:
+			self._value = array(self._itype, numbers)
+		else:
+			self._value = array(self._itype)
 	
 	def __str__(self):
 		return '{}(len={})'.format(self.__class__.__name__, len(self._value))
@@ -232,7 +245,9 @@ class _TagNumberArray(Tag):
 		values.frombytes(stream.read(length * values.itemsize))
 		if _do_byteswap:
 			values.byteswap()
-		return cls(values)
+		arr = cls(None)
+		arr._value = values
+		return arr
 	
 	def write(self, stream):
 		stream.write(_struct_int.pack(len(self._value)))
