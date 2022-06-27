@@ -58,6 +58,9 @@ class TestTagCreation(unittest.TestCase):
         s = 'Hello, tests!'
         self.assertEqual(nbt.TagString(s).value, s)
 
+        with self.assertRaises(ValueError):
+            nbt.TagString(12345)
+
 
     def test_tag_list(self):
         with self.assertRaises(nbt.NbtInvalidOperation):
