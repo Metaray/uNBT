@@ -78,6 +78,11 @@ class Tag:
 		"""Get stored tag value."""
 		return self._value
 	
+	@value.setter
+	def value(self, new_value):
+		"""Set tag value (equivalent to reinit)"""
+		self.__init__(new_value)
+	
 	@classmethod
 	def read(cls, stream):
 		"""Read this tag from a provided stream.
@@ -312,6 +317,16 @@ class TagList(Tag, abc.MutableSequence):
 		if type(self) is not type(other):
 			return False
 		return self.item_cls == other.item_cls and self._value == other._value
+
+	@property
+	def value(self):
+		"""Get stored tag value."""
+		return self._value
+	
+	@value.setter
+	def value(self, new_value):
+		"""Set tag value (equivalent to reinit with same item class)"""
+		self.__init__(self.item_cls, new_value)
 
 	def __len__(self):
 		return len(self._value)
