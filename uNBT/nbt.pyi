@@ -133,7 +133,6 @@ class TagList(Tag, abc.MutableSequence[T]):
     @overload
     def __setitem__(self, index: int, tag: T) -> None: ...
 
-    # Lies!
     @overload
     def __setitem__(self, index: slice, tag: Iterable[T]) -> None: ...
 

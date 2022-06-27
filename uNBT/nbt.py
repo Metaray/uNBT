@@ -319,10 +319,15 @@ class TagList(Tag, abc.MutableSequence):
 	def __getitem__(self, index):
 		return self._value[index]
 	
-	def __setitem__(self, index, tag):
-		if type(tag) is not self.item_cls:
-			raise NbtInvalidOperation('Setting wrong tag type for this list')
-		self._value[index] = tag
+	def __setitem__(self, index, item):
+		if isinstance(index, int):
+			if type(item) is not self.item_cls:
+				raise NbtInvalidOperation('Setting wrong tag type for this list')
+		else:
+			item = list(item)
+			if not all(type(it) is self.item_cls for it in item):
+				raise NbtInvalidOperation('Setting wrong tag type for this list')
+		self._value[index] = item
 	
 	def __delitem__(self, index):
 		del self._value[index]
