@@ -1,4 +1,5 @@
 import unittest
+from .utils import round_f32
 import uNBT as nbt
 
 
@@ -24,9 +25,7 @@ class TestTagReadOperations(unittest.TestCase):
         self.run_integer_tests(nbt.TagLong, 1234567890123456789, 2**64)
 
 
-    def run_float_tests(self, tag_cls):
-        v = 1.2345
-
+    def run_float_tests(self, tag_cls, v):
         self.assertIs(type(int(tag_cls(v))), int)
         self.assertEqual(int(tag_cls(v)), int(v))
 
@@ -34,10 +33,10 @@ class TestTagReadOperations(unittest.TestCase):
         self.assertEqual(float(tag_cls(v)), v)
 
     def test_tag_float(self):
-        self.run_float_tests(nbt.TagFloat)
+        self.run_float_tests(nbt.TagFloat, round_f32(1.23456))
 
     def test_tag_double(self):
-        self.run_float_tests(nbt.TagDouble)
+        self.run_float_tests(nbt.TagDouble, 1.23456)
 
 
     def test_tag_string(self):

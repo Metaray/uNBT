@@ -98,8 +98,16 @@ class TagDouble(_TagNumber):
     def value(self, new_value: float) -> None: ...
 
 
-class TagFloat(TagDouble):
+class TagFloat(_TagNumber):
     tagid: int = ...
+
+    def __init__(self, value: float = 0.0) -> None: ...
+
+    @property
+    def value(self) -> float: ...
+
+    @value.setter
+    def value(self, new_value: float) -> None: ...
 
 
 class _TagNumberArray(Tag):

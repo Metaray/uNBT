@@ -1,4 +1,5 @@
 import unittest
+from .utils import round_f32
 import uNBT as nbt
 
 
@@ -26,8 +27,7 @@ class TestTagCreation(unittest.TestCase):
         self.run_integer_tests(nbt.TagLong, 1234567890123456789, 2**64)
 
 
-    def run_float_tests(self, tag_cls):
-        v = 1.2345
+    def run_float_tests(self, tag_cls, v):
         self.assertEqual(tag_cls().value, 0.0)
         self.assertEqual(tag_cls(v).value, v)
 
@@ -35,10 +35,11 @@ class TestTagCreation(unittest.TestCase):
             tag_cls(str(v))
 
     def test_tag_float(self):
-        self.run_float_tests(nbt.TagFloat)
+        self.run_float_tests(nbt.TagFloat, round_f32(1.23456))
+        self.assertNotEqual(nbt.TagFloat(1/3).value, 1/3)
 
     def test_tag_double(self):
-        self.run_float_tests(nbt.TagDouble)
+        self.run_float_tests(nbt.TagDouble, 1.23456)
 
 
     def test_tag_byte_array(self):

@@ -29,6 +29,7 @@ __all__ = [
 _struct_byte = struct.Struct('>b')
 _struct_short = struct.Struct('>h')
 _struct_int = struct.Struct('>i')
+_struct_float = struct.Struct('>f')
 
 def _compound_read_name(stream):
 	size, = _struct_short.unpack(stream.read(2))
@@ -212,10 +213,23 @@ class TagDouble(_TagNumber):
 			raise ValueError('Tag value must be a float')
 		self._value = value
 
-class TagFloat(TagDouble):
+class TagFloat(_TagNumber):
 	__slots__ = ()
 	tagid = 5
 	_fmt = struct.Struct('>f')
+
+	def __init__(self, value=0.0):
+		"""Create new floating point number tag.
+		
+		Note:
+			Value is internally truncated to 32-bit (single) precision.
+
+		Args:
+			value (float): Value of tag. Default is 0.0
+		"""
+		if not isinstance(value, float):
+			raise ValueError('Tag value must be a float')
+		self._value, = _struct_float.unpack(_struct_float.pack(value))
 
 
 class _TagNumberArray(Tag):

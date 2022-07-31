@@ -1,13 +1,8 @@
 import unittest
 import uNBT as nbt
 from io import BytesIO
-from .utils import read_test_data
+from .utils import read_test_data, round_f32
 import math
-import struct
-
-
-def round_f32(x):
-    return struct.unpack('f', struct.pack('f', x))[0]
 
 
 class TestSerialization(unittest.TestCase):
