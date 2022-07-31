@@ -278,11 +278,11 @@ class TagString(Tag):
 	__slots__ = ()
 	tagid = 8
 	
-	def __init__(self, value):
+	def __init__(self, value=''):
 		"""Create new string tag.
 
 		Args:
-			value (str): Value of this tag.
+			value (str): Value of this tag. Default is empty string.
 		"""
 		if not isinstance(value, str):
 			raise ValueError('Value must have type str')

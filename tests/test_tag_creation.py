@@ -55,6 +55,8 @@ class TestTagCreation(unittest.TestCase):
 
 
     def test_tag_string(self):
+        self.assertEqual(nbt.TagString().value, '')
+
         s = 'Hello, tests!'
         self.assertEqual(nbt.TagString(s).value, s)
 
