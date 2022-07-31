@@ -2,7 +2,6 @@ import struct
 import gzip
 from array import array
 from collections import abc
-import sys
 from io import BytesIO
 
 __all__ = [
@@ -26,8 +25,6 @@ __all__ = [
 	'write_nbt_file',
 ]
 
-
-_do_byteswap = sys.byteorder == 'little'
 
 _struct_byte = struct.Struct('>b')
 _struct_short = struct.Struct('>h')
@@ -241,22 +238,14 @@ class _TagNumberArray(Tag):
 	@classmethod
 	def read(cls, stream):
 		length, = _struct_int.unpack(stream.read(4))
-		values = array(cls._itype)
-		values.frombytes(stream.read(length * values.itemsize))
-		if _do_byteswap:
-			values.byteswap()
-		arr = cls(None)
-		arr._value = values
-		return arr
+		fmt = struct.Struct('>{}{}'.format(length, cls._itype))
+		return cls(fmt.unpack(stream.read(fmt.size)))
 	
 	def write(self, stream):
-		stream.write(_struct_int.pack(len(self._value)))
-		if _do_byteswap:
-			out = array(self._itype, self._value)
-			out.byteswap()
-			out.tofile(stream)
-		else:
-			self._value.tofile(stream)
+		length = len(self._value)
+		fmt = struct.Struct('>{}{}'.format(length, self._itype))
+		stream.write(_struct_int.pack(length))
+		stream.write(fmt.pack(*self._value))
 
 class TagByteArray(_TagNumberArray):
 	__slots__ = ()
