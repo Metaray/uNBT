@@ -1,7 +1,7 @@
 import struct
 import gzip
 from array import array
-from collections import abc
+from collections.abc import MutableSequence, MutableMapping
 from io import BytesIO
 
 __all__ = [
@@ -42,17 +42,17 @@ def _compound_write_name(stream, name):
 
 
 class NbtError(Exception):
-	"""Base exception of errors occuring during operations with NBT tags."""
+	"""Some error occurred during operations with NBT tags."""
 
 class NbtUnpackError(NbtError):
-	"""Error occured during NBT deserialization."""
+	"""Error occurred during NBT deserialization."""
 
 class NbtInvalidOperation(NbtError):
-	"""Error occured when performing some operation on NBT tags."""
+	"""Error occurred when performing some operation on NBT tags."""
 
 
 class Tag:
-	"""Abstract base class for all NBT tags."""
+	"""Abstract base class of NBT tags."""
 	__slots__ = ('_value',)
 	
 	tagid = 0
@@ -78,7 +78,7 @@ class Tag:
 	
 	@value.setter
 	def value(self, new_value):
-		"""Set tag value (equivalent to reinit)"""
+		"""Set tag value (equivalent to re-initialization)"""
 		self.__init__(new_value)
 	
 	@classmethod
@@ -86,7 +86,7 @@ class Tag:
 		"""Read this tag from a provided stream.
 
 		Note:
-			Doesn't include preceesing name or tag id present in some cases.
+			Doesn't read preceding tag name.
 			Doesn't check if all bytes have been read.
 
 		Args:
@@ -98,7 +98,7 @@ class Tag:
 		Raises:
 			NbtUnpackError: If some unknown tag is encountered.
 		"""
-		raise NotImplementedError('Cannot read instances of Tag')
+		raise NotImplementedError('Cannot read instances of base Tag')
 	
 	def write(self, stream):
 		"""Write this tag to a provided stream.
@@ -106,7 +106,7 @@ class Tag:
 		Args:
 			stream (file-like): Stream to write this tag to.
 		"""
-		raise NotImplementedError('Cannot write instances of Tag')
+		raise NotImplementedError('Cannot write instances of base Tag')
 
 	@classmethod
 	def from_bytes(cls, bytes):
@@ -144,7 +144,7 @@ class _TagNumber(Tag):
 	__slots__ = ()
 
 	def __init__(self, value=0):
-		"""Create new integer number tag.
+		"""Initialize new integer number tag.
 
 		Args:
 			value (int): Value of tag. Default is 0.
@@ -204,7 +204,7 @@ class TagDouble(_TagNumber):
 	_fmt = struct.Struct('>d')
 	
 	def __init__(self, value=0.0):
-		"""Create new floating point number tag.
+		"""Initialize new floating point number tag.
 
 		Args:
 			value (float): Value of tag. Default is 0.0
@@ -219,10 +219,10 @@ class TagFloat(_TagNumber):
 	_fmt = struct.Struct('>f')
 
 	def __init__(self, value=0.0):
-		"""Create new floating point number tag.
+		"""Initialize new floating point number tag.
 		
 		Note:
-			Value is internally truncated to 32-bit (single) precision.
+			Value is truncated to 32-bit (single) precision.
 
 		Args:
 			value (float): Value of tag. Default is 0.0
@@ -232,14 +232,14 @@ class TagFloat(_TagNumber):
 		self._value, = _struct_float.unpack(_struct_float.pack(value))
 
 
-class _TagNumberArray(Tag):
+class _TagNumberArray(Tag, MutableSequence):
 	__slots__ = ()
 	
-	def __init__(self, numbers):
-		"""Create new number array tag.
+	def __init__(self, numbers=None):
+		"""Initialize new number array tag.
 
 		Args:
-			numbers (array-like): Any array of integers in correct range.
+			numbers (iterable of int): Starting value of array. Default is empty.
 		"""
 		if numbers is not None:
 			self._value = array(self._itype, numbers)
@@ -248,6 +248,21 @@ class _TagNumberArray(Tag):
 	
 	def __str__(self):
 		return '{}(len={})'.format(self.__class__.__name__, len(self._value))
+	
+	def __len__(self):
+		return len(self._value)
+	
+	def __getitem__(self, index):
+		return self._value[index]
+	
+	def __setitem__(self, index, item):
+		self._value[index] = item
+	
+	def __delitem__(self, index):
+		del self._value[index]
+	
+	def insert(self, index, tag):
+		self._value.insert(index, tag)
 	
 	@classmethod
 	def read(cls, stream):
@@ -282,7 +297,7 @@ class TagString(Tag):
 	tagid = 8
 	
 	def __init__(self, value=''):
-		"""Create new string tag.
+		"""Initialize new string tag.
 
 		Args:
 			value (str): Value of this tag. Default is empty string.
@@ -305,16 +320,16 @@ class TagString(Tag):
 		stream.write(raw)
 
 
-class TagList(Tag, abc.MutableSequence):
+class TagList(Tag, MutableSequence):
 	__slots__ = ('item_cls',)
 	tagid = 9
 	
 	def __init__(self, item_cls, items=None):
-		"""Create new list tag.
+		"""Initialize new list tag.
 
 		Args:
 			item_cls (Tag): The tag type this list holds.
-			items (iterable of Tag): Starting contents of this tag. Default is empty list.
+			items (iterable of Tag): Starting contents of the list. Default is empty.
 		
 		Raises:
 			NbtInvalidOperation: If `item_cls` is not a tag class
@@ -343,7 +358,7 @@ class TagList(Tag, abc.MutableSequence):
 	
 	@value.setter
 	def value(self, new_value):
-		"""Set tag value (equivalent to reinit with same item class)"""
+		"""Set tag value (equivalent to re-initialization with same item class)"""
 		self.__init__(self.item_cls, new_value)
 
 	def __len__(self):
@@ -398,12 +413,12 @@ class TagList(Tag, abc.MutableSequence):
 			tag.write(stream)
 
 
-class TagCompound(Tag, abc.MutableMapping):
+class TagCompound(Tag, MutableMapping):
 	__slots__ = ()
 	tagid = 10
 
 	def __init__(self, mapping=None):
-		"""Create new compound tag.
+		"""Initialize new compound tag.
 
 		Args:
 			mapping (dict): Starting contents of this tag. String to Tag mapping.
