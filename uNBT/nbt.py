@@ -40,6 +40,9 @@ def _compound_write_name(stream, name):
 	stream.write(_struct_short.pack(len(raw)))
 	stream.write(raw)
 
+def _array_exact_for(itype):
+	return array(itype).itemsize == struct.calcsize(itype)
+
 
 class NbtError(Exception):
 	"""Some error occurred during operations with NBT tags."""
@@ -255,8 +258,8 @@ class _TagNumberArray(Tag, MutableSequence):
 	def __getitem__(self, index):
 		return self._value[index]
 	
-	def __setitem__(self, index, item):
-		self._value[index] = item
+	def __setitem__(self, index, value):
+		self._value[index] = value
 	
 	def __delitem__(self, index):
 		del self._value[index]
@@ -265,31 +268,53 @@ class _TagNumberArray(Tag, MutableSequence):
 		self._value.insert(index, tag)
 	
 	@classmethod
-	def read(cls, stream):
+	def _read_s(cls, stream):
 		length, = _struct_int.unpack(stream.read(4))
 		fmt = struct.Struct('>{}{}'.format(length, cls._itype))
 		return cls(fmt.unpack(stream.read(fmt.size)))
 	
-	def write(self, stream):
+	def _write_s(self, stream):
 		length = len(self._value)
 		fmt = struct.Struct('>{}{}'.format(length, self._itype))
 		stream.write(_struct_int.pack(length))
 		stream.write(fmt.pack(*self._value))
+	
+	@classmethod
+	def read(cls, stream):
+		length, = _struct_int.unpack(stream.read(4))
+		tag = cls()
+		values = tag._value
+		values.fromfile(stream, length)
+		values.byteswap()
+		return tag
+
+	def write(self, stream):
+		stream.write(_struct_int.pack(len(self._value)))
+		out = array(self._itype, self._value)
+		out.byteswap()
+		out.tofile(stream)
+
 
 class TagByteArray(_TagNumberArray):
 	__slots__ = ()
 	tagid = 7
 	_itype = 'b'
+	if not _array_exact_for(_itype):
+		read, write = _TagNumberArray._read_s, _TagNumberArray._write_s
 
 class TagIntArray(_TagNumberArray):
 	__slots__ = ()
 	tagid = 11
-	_itype = 'l'
+	_itype = 'i'
+	if not _array_exact_for(_itype):
+		read, write = _TagNumberArray._read_s, _TagNumberArray._write_s
 
 class TagLongArray(_TagNumberArray):
 	__slots__ = ()
 	tagid = 12
 	_itype = 'q'
+	if not _array_exact_for(_itype):
+		read, write = _TagNumberArray._read_s, _TagNumberArray._write_s
 
 
 class TagString(Tag):
