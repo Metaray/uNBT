@@ -31,14 +31,17 @@ _struct_short = struct.Struct('>h')
 _struct_int = struct.Struct('>i')
 _struct_float = struct.Struct('>f')
 
+
 def _compound_read_name(stream):
 	size, = _struct_short.unpack(stream.read(2))
 	return stream.read(size).decode('utf-8')
+
 
 def _compound_write_name(stream, name):
 	raw = name.encode('utf-8')
 	stream.write(_struct_short.pack(len(raw)))
 	stream.write(raw)
+
 
 def _array_exact_for(itype):
 	return array(itype).itemsize == struct.calcsize(itype)
@@ -73,16 +76,6 @@ class Tag:
 		return self._value == other._value
 	
 	__hash__ = None
-	
-	@property
-	def value(self):
-		"""Get stored tag value."""
-		return self._value
-	
-	@value.setter
-	def value(self, new_value):
-		"""Set tag value (equivalent to re-initialization)"""
-		self.__init__(new_value)
 	
 	@classmethod
 	def read(cls, stream):
@@ -161,6 +154,16 @@ class _TagNumber(Tag):
 		else:
 			self._value = value - mod
 	
+	@property
+	def value(self):
+		"""Get stored tag value."""
+		return self._value
+	
+	@value.setter
+	def value(self, new_value):
+		"""Set tag value (equivalent to re-initialization)"""
+		self.__init__(new_value)
+
 	def __int__(self):
 		return int(self._value)
 	
@@ -176,11 +179,13 @@ class _TagNumber(Tag):
 	def write(self, stream):
 		stream.write(self._fmt.pack(self._value))
 
+
 class TagByte(_TagNumber):
 	__slots__ = ()
 	tagid = 1
 	_mod = 2 ** 8
 	_fmt = struct.Struct('>b')
+
 
 class TagShort(_TagNumber):
 	__slots__ = ()
@@ -188,11 +193,13 @@ class TagShort(_TagNumber):
 	_mod = 2 ** 16
 	_fmt = struct.Struct('>h')
 
+
 class TagInt(_TagNumber):
 	__slots__ = ()
 	tagid = 3
 	_mod = 2 ** 32
 	_fmt = struct.Struct('>i')
+
 
 class TagLong(_TagNumber):
 	__slots__ = ()
@@ -249,6 +256,11 @@ class _TagNumberArray(Tag, MutableSequence):
 		else:
 			self._value = array(self._itype)
 	
+	@property
+	def value(self):
+		"""Get internal array buffer"""
+		return self._value
+
 	def __str__(self):
 		return '{}(len={})'.format(self.__class__.__name__, len(self._value))
 	
@@ -302,12 +314,14 @@ class TagByteArray(_TagNumberArray):
 	if not _array_exact_for(_itype):
 		read, write = _TagNumberArray._read_s, _TagNumberArray._write_s
 
+
 class TagIntArray(_TagNumberArray):
 	__slots__ = ()
 	tagid = 11
 	_itype = 'i'
 	if not _array_exact_for(_itype):
 		read, write = _TagNumberArray._read_s, _TagNumberArray._write_s
+
 
 class TagLongArray(_TagNumberArray):
 	__slots__ = ()
@@ -331,6 +345,16 @@ class TagString(Tag):
 			raise ValueError('Value must have type str')
 		self._value = value
 	
+	@property
+	def value(self):
+		"""Get stored tag value."""
+		return self._value
+	
+	@value.setter
+	def value(self, new_value):
+		"""Set tag value (equivalent to re-initialization)"""
+		self.__init__(new_value)
+
 	def __str__(self):
 		return self._value
 	
@@ -375,16 +399,6 @@ class TagList(Tag, MutableSequence):
 		if type(self) is not type(other):
 			return False
 		return self.item_cls == other.item_cls and self._value == other._value
-
-	@property
-	def value(self):
-		"""Get stored tag value."""
-		return self._value
-	
-	@value.setter
-	def value(self, new_value):
-		"""Set tag value (equivalent to re-initialization with same item class)"""
-		self.__init__(self.item_cls, new_value)
 
 	def __len__(self):
 		return len(self._value)

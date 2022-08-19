@@ -8,6 +8,10 @@ class TestTagModifyOperations(unittest.TestCase):
     def set_test(self, tag, value):
         tag.value = value
         self.assertEqual(tag.value, value)
+    
+    def set_list_test(self, tag, values):
+        tag[:] = values
+        self.assertSequenceEqual(tag, values)
 
     def set_key_test(self, tag, key, value):
         tag[key] = value
@@ -42,15 +46,15 @@ class TestTagModifyOperations(unittest.TestCase):
 
     def test_tag_byte_array(self):
         a = array('b', [i for i in range(-128, 128)])
-        self.set_test(nbt.TagByteArray([]), a)
+        self.set_list_test(nbt.TagByteArray(), a)
 
     def test_tag_int_array(self):
-        a = array('l', [i * 2**24 for i in range(-128, 128)])
-        self.set_test(nbt.TagIntArray([]), a)
+        a = array('i', [i * 2**24 for i in range(-128, 128)])
+        self.set_list_test(nbt.TagIntArray(), a)
 
     def test_tag_long_array(self):
         a = array('q', [i * 2**56 for i in range(-128, 128)])
-        self.set_test(nbt.TagLongArray([]), a)
+        self.set_list_test(nbt.TagLongArray(), a)
 
 
     def test_tag_string(self):
@@ -61,12 +65,12 @@ class TestTagModifyOperations(unittest.TestCase):
         tag = nbt.TagList(nbt.TagInt)
 
         with self.assertRaises(nbt.NbtInvalidOperation):
-            self.set_test(tag, [nbt.TagString('not TagInt')])
+            self.set_list_test(tag, [nbt.TagString('not TagInt')])
 
         a = [nbt.TagInt(x) for x in [1, 33, 7, 0]]
-        self.set_test(tag, a)
+        self.set_list_test(tag, a)
 
-        self.set_test(tag, [])
+        self.set_list_test(tag, [])
 
         with self.assertRaises(nbt.NbtInvalidOperation):
             tag[0] = nbt.TagString('not TagInt')
@@ -74,13 +78,13 @@ class TestTagModifyOperations(unittest.TestCase):
         with self.assertRaises(nbt.NbtInvalidOperation):
             tag[:] = [nbt.TagInt(10), nbt.TagString('not TagInt')]
         
-        tag.value = a
+        tag[:] = a
         self.set_key_test(tag, 0, nbt.TagInt(42))
 
         b = [nbt.TagInt(3), nbt.TagInt(4)]
-        tag.value = a
+        tag[:] = a
         tag[0:2] = b
-        self.assertEqual(tag.value, b + a[2:])
+        self.assertSequenceEqual(tag, b + a[2:])
 
         x = nbt.TagInt(123)
         tag.append(x)
@@ -102,8 +106,7 @@ class TestTagModifyOperations(unittest.TestCase):
             'key': nbt.TagString('value'),
             'other': nbt.TagFloat(12.34),
         }
-        self.set_test(tag, d)
-
+        tag = nbt.TagCompound(d)
         k = 'key'
         self.assertTrue(k in tag)
         del tag[k]

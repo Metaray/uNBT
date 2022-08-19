@@ -44,15 +44,15 @@ class TestTagCreation(unittest.TestCase):
 
     def test_tag_byte_array(self):
         a = [i for i in range(-128, 128)]
-        self.assertEqual(list(nbt.TagByteArray(a).value), a)
+        self.assertEqual(list(nbt.TagByteArray(a)), a)
 
     def test_tag_int_array(self):
         a = [i * 2**24 for i in range(-128, 128)]
-        self.assertEqual(list(nbt.TagIntArray(a).value), a)
+        self.assertEqual(list(nbt.TagIntArray(a)), a)
 
     def test_tag_long_array(self):
         a = [i * 2**56 for i in range(-128, 128)]
-        self.assertEqual(list(nbt.TagLongArray(a).value), a)
+        self.assertEqual(list(nbt.TagLongArray(a)), a)
 
 
     def test_tag_string(self):
@@ -75,17 +75,17 @@ class TestTagCreation(unittest.TestCase):
         with self.assertRaises(nbt.NbtInvalidOperation):
             nbt.TagList(nbt.TagInt, [nbt.TagLong()])
         
-        self.assertListEqual(nbt.TagList(nbt.TagLong).value, [])
+        self.assertSequenceEqual(nbt.TagList(nbt.TagLong), [])
 
         a = [nbt.TagInt(1), nbt.TagInt(3), nbt.TagInt(37)]
-        self.assertListEqual(nbt.TagList(nbt.TagInt, a).value, a)
+        self.assertSequenceEqual(nbt.TagList(nbt.TagInt, a), a)
 
         b = iter(a)
-        self.assertListEqual(nbt.TagList(nbt.TagInt, b).value, a)
+        self.assertSequenceEqual(nbt.TagList(nbt.TagInt, b), a)
 
 
     def test_tag_compound(self):
-        self.assertDictEqual(nbt.TagCompound().value, {})
+        self.assertDictEqual(dict(nbt.TagCompound()), {})
 
         with self.assertRaises(nbt.NbtInvalidOperation):
             nbt.TagCompound({123: 456})
@@ -97,4 +97,4 @@ class TestTagCreation(unittest.TestCase):
             'key': nbt.TagString('value'),
             'other': nbt.TagFloat(12.34),
         }
-        self.assertDictEqual(nbt.TagCompound(d).value, d)
+        self.assertDictEqual(dict(nbt.TagCompound(d)), d)
