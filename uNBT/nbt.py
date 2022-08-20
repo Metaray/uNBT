@@ -276,8 +276,8 @@ class _TagNumberArray(Tag, MutableSequence):
 	def __delitem__(self, index):
 		del self._value[index]
 	
-	def insert(self, index, tag):
-		self._value.insert(index, tag)
+	def insert(self, index, value):
+		self._value.insert(index, value)
 	
 	@classmethod
 	def _read_s(cls, stream):
@@ -545,8 +545,8 @@ _tagid_class_mapping = {
 def read_nbt_file(file, *, with_name=False):
 	"""Read file containing NBT data.
 
-	Expects to read compound root tag.
-	Compressed files are unpacked automatically.
+	Note:
+		Compressed files are unpacked automatically.
 
 	Args:
 		file (str or file-like): Path to file or file-like object to read from.
@@ -558,7 +558,7 @@ def read_nbt_file(file, *, with_name=False):
 		tuple(Tag, str): Root tag and it's name.
 	
 	Raises:
-		NbtUnpackError: If root tag is not TagCompound or some unknown tag is found.
+		NbtUnpackError: If unknown tag is found.
 	"""
 	file_handle = None
 	try:
@@ -570,10 +570,13 @@ def read_nbt_file(file, *, with_name=False):
 		if gz_magic == b'\x1f\x8b':
 			file = gzip.open(file, 'rb')
 		
-		if file.read(1)[0] != TagCompound.tagid:
+		tagid = file.read(1)[0]
+		if tagid == 0 or tagid not in _tagid_class_mapping:
 			raise NbtUnpackError('Invalid base tag')
+		
 		root_name = _compound_read_name(file)
-		root = TagCompound.read(file)
+		root = _tagid_class_mapping[tagid].read(file)
+		
 		if with_name:
 			return root, root_name
 		else:
@@ -589,15 +592,15 @@ def write_nbt_file(file, root, *, root_name='', compress=True):
 
 	Args:
 		file (str or file-like): Path to file or file-like object to write to.
-		root (TagCompound): Root tag to write.
+		root (Tag): Tag to write.
 		root_name (str): Name of root tag. Default is empty string.
 		compress (bool): Compress the data. Default is True.
 	
 	Raises:
-		NbtInvalidOperation: If root is not TagCompound.
+		NbtInvalidOperation: If root is not Tag.
 	"""
-	if type(root) is not TagCompound:
-		raise NbtInvalidOperation('Root must be a TagCompound')
+	if not isinstance(root, Tag):
+		raise NbtInvalidOperation('Root must be a Tag')
 
 	file_handle = None
 	try:
@@ -607,7 +610,7 @@ def write_nbt_file(file, root, *, root_name='', compress=True):
 		if compress:
 			file_handle = file = gzip.open(file, 'wb')
 		
-		file.write(b'\x0a')
+		file.write(_struct_byte.pack(root.tagid))
 		_compound_write_name(file, root_name)
 		root.write(file)
 

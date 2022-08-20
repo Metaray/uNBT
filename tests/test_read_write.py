@@ -4,23 +4,25 @@ import uNBT as nbt
 from io import BytesIO
 import sys
 
+
 class TestReadWrite(unittest.TestCase):
     def test_save_load_cycle(self):
-        self.run_save_load_for('bigtest.nbt')
-        self.run_save_load_for('bigtest2.nbt')
+        self.check_for_file('bigtest.nbt')
+        self.check_for_file('bigtest2.nbt')
+        self.check_for_tag(nbt.TagList(nbt.TagString, [nbt.TagString('Non-compound root tag')]), '')
 
 
-    def run_save_load_for(self, filename):
+    def check_for_file(self, filename):
         test_file = BytesIO(read_test_data(filename))
         tag, name = nbt.read_nbt_file(test_file, with_name=True)
         self.assertEqual(test_file.tell(), len(test_file.getvalue()), 'Unread data remaining')
-        self.check_save_load(tag, name)
+        self.check_for_tag(tag, name)
 
 
-    def check_save_load(self, tag, name):
+    def check_for_tag(self, tag, name):
         # Save
         mock_file = BytesIO()
-        nbt.write_nbt_file(mock_file, tag, root_name=name, compress=False)
+        nbt.write_nbt_file(mock_file, tag, root_name=name)
 
         # Load back
         mock_file.seek(0)
