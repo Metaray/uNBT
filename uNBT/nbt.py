@@ -1,3 +1,4 @@
+from pathlib import PurePath
 import struct
 import gzip
 from array import array
@@ -549,7 +550,7 @@ def read_nbt_file(file, *, with_name=False):
 		Compressed files are unpacked automatically.
 
 	Args:
-		file (str or file-like): Path to file or file-like object to read from.
+		file (str, Path, or file-like): Path to file or file-like object to read from.
 		with_name (bool): Return root tag name as well. Default is False.
 	
 	Returns:
@@ -562,7 +563,7 @@ def read_nbt_file(file, *, with_name=False):
 	"""
 	file_handle = None
 	try:
-		if type(file) is str:
+		if isinstance(file, (str, PurePath)):
 			file_handle = file = open(file, 'rb')
 		
 		gz_magic = file.read(2)
@@ -591,7 +592,7 @@ def write_nbt_file(file, root, *, root_name='', compress=True):
 	"""Write NBT storing file.
 
 	Args:
-		file (str or file-like): Path to file or file-like object to write to.
+		file (str, Path or file-like): Path to file or file-like object to write to.
 		root (Tag): Tag to write.
 		root_name (str): Name of root tag. Default is empty string.
 		compress (bool): Compress the data. Default is True.
@@ -604,7 +605,7 @@ def write_nbt_file(file, root, *, root_name='', compress=True):
 
 	file_handle = None
 	try:
-		if type(file) is str:
+		if isinstance(file, (str, PurePath)):
 			file_handle = file = open(file, 'wb')
 		
 		if compress:
