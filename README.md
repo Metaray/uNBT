@@ -1,6 +1,6 @@
 # μNBT
 
-Simple pure-python library for reading and writing files in Minecraft's Named Binary Tag (NBT) format.
+Simple Pythonic library for reading and writing files in Minecraft's Named Binary Tag (NBT) format.
 
 Includes some additional utilities for reading world save data.
 
@@ -25,3 +25,9 @@ Output:
 TagList(TagDouble, [TagDouble(388.5), TagDouble(93.62000000476837), TagDouble(-790.5)])
 Chunk: 24 -50
 ```
+
+
+## Notes
+
+- Only big-endian NBT (used by java version) is supported
+- Currently treats strings as UTF-8 instead of MUTF-8

@@ -397,7 +397,7 @@ class TagList(Tag, MutableSequence):
 			self._value = []
 
 	def __eq__(self, other):
-		if type(self) is not type(other):
+		if not isinstance(other, TagList):
 			return False
 		return self.item_cls == other.item_cls and self._value == other._value
 
@@ -471,7 +471,7 @@ class TagCompound(Tag, MutableMapping):
 		if mapping is not None:
 			if any(not isinstance(item, Tag) for item in mapping.values()):
 				raise NbtInvalidOperation('Not all mapping elements are Tags')
-			if any(type(key) is not str for key in mapping.keys()):
+			if any(not isinstance(key, str) for key in mapping.keys()):
 				raise NbtInvalidOperation('Not all mapping keys are strings')
 			self._value = mapping.copy()
 		else:
@@ -487,7 +487,7 @@ class TagCompound(Tag, MutableMapping):
 		return self._value[key]
 	
 	def __setitem__(self, key, tag):
-		if type(key) is not str:
+		if not isinstance(key, str):
 			raise NbtInvalidOperation('Mapping key is not string')
 		if not isinstance(tag, Tag):
 			raise NbtInvalidOperation('Mapping value is not instance of Tag')

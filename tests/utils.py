@@ -1,12 +1,13 @@
-import os
+from pathlib import Path
 import struct
 
 
 def read_test_data(name, binary=True):
-    path = os.path.join(os.path.dirname(__file__), name)
-    mode = 'rb' if binary else 'r'
-    with open(path, mode) as f:
-        return f.read()
+    path = Path(__file__).parent / name
+    if binary:
+        return path.read_bytes()
+    else:
+        return path.read_text()
 
 
 def round_f32(x):

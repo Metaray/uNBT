@@ -1,10 +1,10 @@
 # Note: nothing in this API is final
+from pathlib import Path
 import zlib
 import struct
 from io import BytesIO
 from .nbt import read_nbt_file
 from .util import region_pos_from_path
-import os
 
 __all__ = [
     'Chunk',
@@ -90,8 +90,7 @@ class Region:
                         raise ValueError('Found external chunk, but no region position available')
                     cx, cz = x + rxz[0] * 32, z + rxz[1] * 32
                     cname = 'c.{}.{}.mcc'.format(cx, cz)
-                    with open(os.path.join(os.path.dirname(path), cname), 'rb') as cfile:
-                        data = cfile.read()
+                    data = (Path(path).parent / cname).read_bytes()
                 else:
                     data = rflie.read(length)
                 region._chunks[z][x] = data

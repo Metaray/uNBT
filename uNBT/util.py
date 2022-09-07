@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import re
 from collections import namedtuple
 
@@ -11,6 +12,7 @@ __all__ = [
 
 
 RegionFileInfo = namedtuple('RegionFileInfo', ['path', 'x', 'z'])
+
 
 def region_pos_from_path(path):
 	"""Try to extract region coordinates from file name.
@@ -28,6 +30,7 @@ def region_pos_from_path(path):
 		return (int(m.group(1)), int(m.group(2)))
 	return None
 
+
 def enumerate_region_files(path, fmt='anvil'):
 	"""Enumerate .mcr or .mca region files in provided directory.
 
@@ -44,18 +47,19 @@ def enumerate_region_files(path, fmt='anvil'):
 		ValueError: If unknown `fmt` is passed in.
 	"""
 	if fmt == 'anvil':
-		ext = 'mca'
+		ext = '.mca'
 	elif fmt == 'region':
-		ext = 'mcr'
+		ext = '.mcr'
 	else:
 		raise ValueError('Unknown format')
+	
 	files = []
-	for name in os.listdir(path):
-		fullpath = os.path.join(path, name)
-		rxz = region_pos_from_path(name)
-		if rxz and name.endswith(ext) and os.path.isfile(fullpath):
-			files.append(RegionFileInfo(fullpath, rxz[0], rxz[1]))
+	for fullpath in Path(path).iterdir():
+		rxz = region_pos_from_path(fullpath)
+		if rxz and fullpath.suffix == ext and fullpath.is_file():
+			files.append(RegionFileInfo(path=str(fullpath), x=rxz[0], z=rxz[1]))
 	return files
+
 
 def enumerate_world(path, fmt='anvil'):
 	"""Enumerate dimensions in provieded world directory.
@@ -74,16 +78,18 @@ def enumerate_world(path, fmt='anvil'):
 		ValueError: If unknown `fmt` is passed in.
 	"""
 	dims = {}
-	for name in os.listdir(path):
-		fullpath = os.path.join(path, name)
-		if not os.path.isdir(fullpath):
+	for fullpath in Path(path).iterdir():
+		if not fullpath.is_dir():
 			continue
-		if name == 'region':
+		
+		if fullpath.name == 'region':
 			dims[0] = enumerate_region_files(fullpath, fmt)
-		else:
-			m = re.match(r'DIM(-?\d+)$', name)
-			if m:
-				regpath = os.path.join(fullpath, 'region')
-				if os.path.isdir(regpath):
-					dims[int(m.group(1))] = enumerate_region_files(regpath, fmt)
+			continue
+		
+		m = re.match(r'^DIM(-?\d+)$', fullpath.name)
+		if m:
+			regpath = fullpath / 'region'
+			if regpath.is_dir():
+				dims[int(m.group(1))] = enumerate_region_files(regpath, fmt)
+	
 	return dims

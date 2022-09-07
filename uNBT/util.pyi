@@ -1,7 +1,11 @@
 from collections import namedtuple
-from typing import Dict, List, Literal, Optional, Tuple
+from typing import Dict, List, Literal, NamedTuple, Optional, Tuple
 
-RegionFileInfo = namedtuple('RegionFileInfo', ['path', 'x', 'z'])
+class RegionFileInfo(NamedTuple):
+    path: str
+    x: int
+    z: int
+
 RegionFormat = Literal['anvil', 'region']
 
 def region_pos_from_path(path: str) -> Optional[Tuple[int, int]]: ...
