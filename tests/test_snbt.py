@@ -81,6 +81,10 @@ class TestSnbt(unittest.TestCase):
         )
 
         self.assertEqual(
+            nbt.parse_snbt(r'[]'),
+            nbt.TagList(nbt.Tag)
+        )
+        self.assertEqual(
             nbt.parse_snbt(r' [ [ 1 ], [ -2 ] ] '),
             nbt.TagList(
                 nbt.TagList,
@@ -139,6 +143,11 @@ class TestSnbt(unittest.TestCase):
         self.parse_expect_fail(r'{:"value"}')
         self.parse_expect_fail(r'{key:1,nocolon}')
         self.parse_expect_fail(r'{key:1,noval:}')
+    
+
+    def test_invalid_parse(self):
+        with self.assertRaises(nbt.NbtInvalidOperation):
+            tag = nbt.parse_snbt('[123,"str"]')
 
 
     def parse_expect_fail(self, s):

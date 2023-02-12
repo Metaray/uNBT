@@ -1,4 +1,4 @@
-from .nbt import TagByte, TagByteArray, TagCompound, TagDouble, TagFloat, TagInt, TagIntArray, TagList, TagLong, TagLongArray, TagShort, TagString
+from .nbt import *
 import re
 
 __all__ = ['to_snbt', 'parse_snbt']
@@ -122,10 +122,7 @@ def _parse_rec(s):
             s, tag = _parse_rec(s)
             tags.append(tag)
         
-        if tags:
-            tag_cls = type(tags[0])
-        else:
-            tag_cls = TagInt  # Choice as good as any if no tags were read
+        tag_cls = type(tags[0]) if tags else Tag
         return s, TagList(tag_cls, tags)
 
     # Parse compound tag
