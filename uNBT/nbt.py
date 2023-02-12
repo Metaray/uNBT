@@ -409,19 +409,42 @@ class TagList(Tag, MutableSequence):
 	
 	def __setitem__(self, index, item):
 		if isinstance(index, int):
-			if type(item) is not self.item_cls:
+			if not isinstance(item, self.item_cls):
 				raise NbtInvalidOperation('Setting wrong tag type for this list')
+			self._value[index] = item
+		
+		elif isinstance(index, slice):
+			items = list(item)
+			if self.item_cls is Tag:
+				if items:
+					new_cls = type(items[0])
+					if not issubclass(new_cls, Tag):
+						raise NbtInvalidOperation('Item class must be some Tag')
+					if not all(isinstance(it, new_cls) for it in items):
+						raise NbtInvalidOperation('Conflicting tag types in values')
+					self._value[index] = items
+					self.item_cls = new_cls
+			else:
+				this_tag = self.item_cls
+				if not all(isinstance(it, this_tag) for it in items):
+					raise NbtInvalidOperation('Setting wrong tag type for this list')
+				self._value[index] = items
+		
 		else:
-			item = list(item)
-			if not all(type(it) is self.item_cls for it in item):
-				raise NbtInvalidOperation('Setting wrong tag type for this list')
-		self._value[index] = item
+			raise NbtInvalidOperation('Unsupported index type')
 	
 	def __delitem__(self, index):
 		del self._value[index]
 	
 	def insert(self, index, tag):
 		if type(tag) is not self.item_cls:
+			if self.item_cls is Tag:
+				new_cls = type(tag)
+				if not issubclass(new_cls, Tag):
+					raise NbtInvalidOperation('Item class must be some Tag')
+				self._value.insert(index, tag)
+				self.item_cls = new_cls
+				return
 			raise NbtInvalidOperation('Inserting wrong tag type for this list')
 		self._value.insert(index, tag)
 	

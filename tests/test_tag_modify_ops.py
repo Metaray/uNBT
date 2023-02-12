@@ -90,6 +90,29 @@ class TestTagModifyOperations(unittest.TestCase):
         tag.append(x)
         self.assertEqual(tag[-1], x)
 
+        tag = nbt.TagList(nbt.Tag)
+        x = nbt.TagString('marker')
+        tag.append(x)
+        self.assertIs(tag.item_cls, type(x))
+        self.assertSequenceEqual(tag, [x])
+
+        tag = nbt.TagList(nbt.Tag)
+        tag[:] = []
+        self.assertIs(tag.item_cls, nbt.Tag)
+
+        tag = nbt.TagList(nbt.Tag)
+        tag[:] = [x]
+        self.assertIs(tag.item_cls, type(x))
+        self.assertSequenceEqual(tag, [x])
+
+        tag = nbt.TagList(nbt.Tag)
+        with self.assertRaises(nbt.NbtInvalidOperation):
+            tag[:] = [nbt.TagInt(10), nbt.TagString('not TagInt')]
+        with self.assertRaises(nbt.NbtInvalidOperation):
+            tag.append('qwerty')
+        with self.assertRaises(nbt.NbtInvalidOperation):
+            tag[:] = ['not a tag']
+
 
     def test_tag_compound(self):
         tag = nbt.TagCompound()
