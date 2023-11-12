@@ -457,9 +457,9 @@ class TagList(Tag, MutableSequence):
 	@classmethod
 	def read(cls, stream):
 		itemid = stream.read(1)[0]
-		if itemid not in _tagid_class_mapping:
+		if itemid > MAX_TAG_ID:
 			raise NbtUnpackError('Unknown list item tag id {}'.format(itemid))
-		itemcls = _tagid_class_mapping[itemid]
+		itemcls = TAG_ID_CLASS_MAPPING[itemid]
 		itemcls_read = itemcls.read
 		
 		size, = _struct_int.unpack(stream.read(4))
@@ -531,10 +531,10 @@ class TagCompound(Tag, MutableMapping):
 			tagid = stream_read(1)[0]
 			if not tagid:
 				break
-			if tagid not in _tagid_class_mapping:
+			if tagid > MAX_TAG_ID:
 				raise NbtUnpackError('Unknown tag id {} in compound'.format(tagid))
 			name = _compound_read_name(stream)
-			tag = _tagid_class_mapping[tagid].read(stream)
+			tag = TAG_ID_CLASS_MAPPING[tagid].read(stream)
 			tagdict[name] = tag
 		
 		thistag = cls()
@@ -549,21 +549,23 @@ class TagCompound(Tag, MutableMapping):
 		stream.write(b'\x00')
 
 
-_tagid_class_mapping = {
-	0: Tag,
-	1: TagByte,
-	2: TagShort,
-	3: TagInt,
-	4: TagLong,
-	5: TagFloat,
-	6: TagDouble,
-	7: TagByteArray,
-	8: TagString,
-	9: TagList,
-	10: TagCompound,
-	11: TagIntArray,
-	12: TagLongArray,
-}
+TAG_ID_CLASS_MAPPING = [
+	Tag,
+	TagByte,
+	TagShort,
+	TagInt,
+	TagLong,
+	TagFloat,
+	TagDouble,
+	TagByteArray,
+	TagString,
+	TagList,
+	TagCompound,
+	TagIntArray,
+	TagLongArray,
+]
+
+MAX_TAG_ID = len(TAG_ID_CLASS_MAPPING) - 1
 
 
 def read_nbt_file(file, *, with_name=False):
@@ -595,11 +597,11 @@ def read_nbt_file(file, *, with_name=False):
 			file = gzip.open(file, 'rb')
 		
 		tagid = file.read(1)[0]
-		if tagid == 0 or tagid not in _tagid_class_mapping:
+		if tagid == 0 or tagid > MAX_TAG_ID:
 			raise NbtUnpackError('Invalid base tag')
 		
 		root_name = _compound_read_name(file)
-		root = _tagid_class_mapping[tagid].read(file)
+		root = TAG_ID_CLASS_MAPPING[tagid].read(file)
 		
 		if with_name:
 			return root, root_name
